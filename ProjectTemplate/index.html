@@ -8,7 +8,7 @@
 
 	<!--YOUR OWN JAVASCRIPT CAN GO RIGHT HERE-->
 	<script type="text/javascript">
-		/*function TestButtonHandler() {
+		function TestButtonHandler() {
 			var webMethod = "ProjectServices.asmx/TestConnection";
 			var parameters = "{}";
 
@@ -27,7 +27,8 @@
 					alert("this code will only execute if javascript is unable to access the webservice");
 				}
 			});
-		}*/
+        }
+        
         // Function to show the post creation form
         function showPostForm() {
             document.getElementById('postFormContainer').style.display = 'block';
@@ -40,6 +41,23 @@
             // Get the title and content of the post
             const title = document.getElementById('postTitle').value;
             const content = document.getElementById('postContent').value;
+
+            var webMethod = "ProjectServices.asmx/CreatePost";
+            var parameters = "{ \"title\":\"" + encodeURI(title) + "\",\"content\":\"" + encodeURI(content) + "\"}";
+
+            $.ajax({
+                type: "POST",
+                url: webMethod,
+                data: parameters,
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (msg) {
+                    alert("Post Submitted")
+                },
+                error: function (e) {
+                    alert("Error submitting post.");
+                }
+            });
 
             // Create a new post container
             const postContainer = document.createElement('div');

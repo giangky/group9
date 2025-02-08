@@ -62,5 +62,33 @@ namespace ProjectTemplate
 				return "Something went wrong, please check your credentials and db name and try again.  Error: "+e.Message;
 			}
 		}
-	}
+
+        //Insert query for creating a post
+        [WebMethod(EnableSession = true)]
+        public void CreatePost(string title, string content)
+        {
+
+			string sqlInsert = "INSERT into posts (title, content, created_at) " +
+				"values(@title, @content, NOW());";
+
+            MySqlConnection sqlConnection = new MySqlConnection(getConString());
+            MySqlCommand sqlCommand = new MySqlCommand(sqlInsert, sqlConnection);
+
+            sqlCommand.Parameters.AddWithValue("@title", HttpUtility.UrlDecode(title));
+            sqlCommand.Parameters.AddWithValue("@content", HttpUtility.UrlDecode(content));
+
+            sqlConnection.Open();
+
+            //we're using a try/catch so that if the query errors out we can handle it 
+            try
+            {
+                sqlCommand.ExecuteNonQuery();
+            }
+            catch (Exception e)
+            {
+            }
+            sqlConnection.Close();
+        }
+
+    }
 }
