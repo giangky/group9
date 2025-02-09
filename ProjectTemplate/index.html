@@ -8,26 +8,69 @@
 
 	<!--YOUR OWN JAVASCRIPT CAN GO RIGHT HERE-->
 	<script type="text/javascript">
-		function TestButtonHandler() {
-			var webMethod = "ProjectServices.asmx/TestConnection";
-			var parameters = "{}";
+        function TestButtonHandler() {
+            var webMethod = "ProjectServices.asmx/TestConnection";
+            var parameters = "{}";
 
-			//jQuery ajax method
-			$.ajax({
-				type: "POST",
-				url: webMethod,
-				data: parameters,
-				contentType: "application/json; charset=utf-8",
-				dataType: "json",
-				success: function (msg) {
-					var responseFromServer = msg.d;
-					alert(responseFromServer);
-				},
-				error: function (e) {
-					alert("this code will only execute if javascript is unable to access the webservice");
-				}
-			});
-		}
+            $.ajax({
+                type: "POST",
+                url: webMethod,
+                data: parameters,
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (msg) {
+                    var responseFromServer = msg.d;
+                    alert(responseFromServer);
+                },
+                error: function () {
+                    alert("This code will only execute if JavaScript is unable to access the web service.");
+                }
+            });
+        }
+
+        // Function to add an anonymous comment
+        function addComment(postContainer) {
+            const commentText = prompt("Enter your comment:");
+            if (commentText) {
+                const comment = document.createElement('p');
+                comment.textContent = `Anonymous: ${commentText}`;
+                comment.classList.add('comment');
+                postContainer.appendChild(comment);
+            }
+        }
+
+        // Function to create a new post
+        function createPost(title, content) {
+            const postContainer = document.createElement('div');
+            postContainer.classList.add('post');
+
+            const postTitle = document.createElement('h2');
+            postTitle.textContent = title;
+            const postContent = document.createElement('p');
+            postContent.textContent = content;
+
+            // Create a comment button
+            const commentButton = document.createElement('button');
+            commentButton.textContent = "Comment Anonymously";
+            commentButton.onclick = () => addComment(postContainer);
+
+            // Append elements
+            postContainer.appendChild(postTitle);
+            postContainer.appendChild(postContent);
+            postContainer.appendChild(commentButton);
+            document.getElementById('postsContainer').appendChild(postContainer);
+        }
+
+        // Ensure the DOM is fully loaded
+        $(document).ready(function () {
+            // Check if postsContainer exists, if not, create it
+            if (!document.getElementById('postsContainer')) {
+                const postsDiv = document.createElement('div');
+                postsDiv.id = 'postsContainer';
+                document.body.appendChild(postsDiv);
+            }
+        });
+
 	</script>
 	<!--END OF YOUR OWN JAVASCRIPT-->
 
