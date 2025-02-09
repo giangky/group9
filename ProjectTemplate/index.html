@@ -52,34 +52,64 @@
                 contentType: "application/json; charset=utf-8",
                 dataType: "json",
                 success: function (msg) {
-                    alert("Post Submitted")
+                    alert("Post Submitted");
+                    GetPosts();
                 },
                 error: function (e) {
                     alert("Error submitting post.");
                 }
             });
 
-            // Create a new post container
-            const postContainer = document.createElement('div');
-            postContainer.classList.add('post');
-
-            // Add the title and content to the new post container
-            const postTitle = document.createElement('h2');
-            postTitle.textContent = title;
-            const postContent = document.createElement('p');
-            postContent.textContent = content;
-
-            // Append title and content to the new post container
-            postContainer.appendChild(postTitle);
-            postContainer.appendChild(postContent);
-
-            // Append the new post to the posts container
-            document.getElementById('postsContainer').appendChild(postContainer);
-
             // Reset the form and hide it
             document.getElementById('postForm').reset();
             document.getElementById('postFormContainer').style.display = 'none';
         }
+
+        var postsArray;
+        //Function to display posts made
+        function GetPosts() {
+            var webMethod = "ProjectServices.asmx/GetPosts";
+            var parameters = "{}";
+
+            //jQuery ajax method
+            $.ajax({
+                type: "POST",
+                url: webMethod,
+                data: parameters,
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (msg) {
+                    if (msg.d.length > 0) {
+                        postsArray = msg.d;
+                        $("#postsContainer").empty();
+
+                        //Loop through postsArray and format posts
+                        for (var i = 0; i < postsArray.length; i++) {
+                            //html output for each post
+                            var post = "<div class='postRow' id='post" + i + "'>" +
+                                "<h3>" + postsArray[i].title + "</h3>" +
+                                "<p>" + postsArray[i].content + "</p>" +
+                                "<hr></div>";
+
+                            $("#postsContainer").append(post);
+
+                        }
+                    }
+                    else {
+                        $("#postsContainer").append("<p>No posts available at the moment.</p>");
+                    }          
+                },
+                error: function (e) {
+                    alert("Error fetching posts");
+                }
+            });
+
+        }
+        // Ensure that posts are loaded when the page is ready
+        $(document).ready(function () {
+            GetPosts(); // Call GetPosts when the page is loaded
+        });
+        
 	</script>
 	<!--END OF YOUR OWN JAVASCRIPT-->
 
@@ -189,12 +219,14 @@
         .post h2 {
            margin-top: 0;
         }
+
 		
 
 	</style>
 	<!--END OF YOUR OWN CSS-->
 </head>
 <body>
+
 <!--Main container of the webpage-->
 <div class="container">
 	<h1>Feedback Dashboard</h1>
@@ -216,8 +248,10 @@
 		</form>
 	</div>
 
-	<!--Container for all posts-->
+	<!--Container for posts-->
 	<div id="postsContainer"></div>
+
+    
 
 </div>
     <!--<button onclick="javascript: TestButtonHandler();">Click here to test connection!</button>-->
