@@ -10,9 +10,11 @@ namespace ProjectTemplate
         //this is just a container for all info related
         //to an post.  We'll simply create public class-level
         //variables representing each piece of information!
+        public int postId { get; set; }
         public string title { get; set; }
         public string content { get; set; }
-
         
+        public bool isAnonymous { get; set; }
+
     }
 }
