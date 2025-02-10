@@ -19,9 +19,9 @@ namespace ProjectTemplate
 		////////////////////////////////////////////////////////////////////////
 		///replace the values of these variables with your database credentials
 		////////////////////////////////////////////////////////////////////////
-		private string dbID = "cis440template";
-		private string dbPass = "!!Cis440";
-		private string dbName = "cis440template";
+		private string dbID = "cis440springA2025team9";
+		private string dbPass = "cis440springA2025team9";
+		private string dbName = "cis440springA2025team9";
 		////////////////////////////////////////////////////////////////////////
 		
 		////////////////////////////////////////////////////////////////////////
@@ -43,7 +43,7 @@ namespace ProjectTemplate
 		{
 			try
 			{
-				string testQuery = "select * from test";
+				string testQuery = "select * from answers";
 
 				////////////////////////////////////////////////////////////////////////
 				///here's an example of using the getConString method!
