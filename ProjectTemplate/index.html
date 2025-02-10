@@ -115,6 +115,15 @@
 
 	<!--AND YOUR OWN CSS CAN GO HERE AS WELL-->
 	<style>
+        html, body {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            margin: 0px;
+            padding: 0px;
+            overflow: hidden;
+            font-family: 'Century Gothic';
+        }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -219,14 +228,34 @@
         .post h2 {
            margin-top: 0;
         }
-
+        .weeklyQuestion {
+            background-color: lightblue;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 1px solid gray;
+            border-radius: 10px;
+            padding-left: 10px;
+            padding-right: 10px;
+            font-size: 18px;
+         }
+         .title {
+            font-size: 27px;
+            font-weight: 520;
+            padding-bottom: 10px;
+         }
 		
-
 	</style>
 	<!--END OF YOUR OWN CSS-->
 </head>
 <body>
-
+	<div class="weeklyQuestion">
+		<div class="title">
+			<span>Weekly Question</span>
+		</div>
+		<span>Do you like the coffee?</span>
+	</div>
+  
 <!--Main container of the webpage-->
 <div class="container">
 	<h1>Feedback Dashboard</h1>
@@ -250,8 +279,6 @@
 
 	<!--Container for posts-->
 	<div id="postsContainer"></div>
-
-    
 
 </div>
     <!--<button onclick="javascript: TestButtonHandler();">Click here to test connection!</button>-->
