@@ -68,7 +68,45 @@ namespace ProjectTemplate
                 return "Something went wrong, please check your credentials and db name and try again.  Error: " + e.Message;
             }
         }
+        // LogOn method to allow users to access system
+        [WebMethod(EnableSession = true)]
+        public bool LogOn(string userid, string pass)
+        {
+            //we return this flag to tell them if they logged in or not
+            bool success = false;
 
+            MySqlConnection sqlConnection = new MySqlConnection(getConString());
+
+            string sqlSelect = "SELECT id, admin FROM accounts WHERE userid=@userid and pass=@pass";
+
+            MySqlCommand sqlCommand = new MySqlCommand(sqlSelect, sqlConnection);
+
+            //tell our command to replace the @parameters with real values
+            //we decode them because they came to us via the web so they were encoded
+            //for transmission (funky characters escaped, mostly)
+            sqlCommand.Parameters.AddWithValue("@userid", HttpUtility.UrlDecode(userid));
+            sqlCommand.Parameters.AddWithValue("@pass", HttpUtility.UrlDecode(pass));
+
+         
+            MySqlDataAdapter sqlDa = new MySqlDataAdapter(sqlCommand);
+            //here's the table we want to fill with the results from our query
+            DataTable sqlDt = new DataTable();
+            sqlDa.Fill(sqlDt);
+            //check to see if any rows were returned.  If they were, it means it's 
+            //a legit account
+            if (sqlDt.Rows.Count > 0)
+            {
+
+                //if we found an account, store the id and admin status in the session
+                //so we can check those values later on other method calls to see if they 
+                //are 1) logged in at all, and 2) and admin or not
+                Session["id"] = sqlDt.Rows[0]["id"];
+                Session["admin"] = sqlDt.Rows[0]["admin"];
+                success = true;
+            }
+            //return the result!
+            return success;
+        }
         //Insert query for creating a post
         [WebMethod(EnableSession = true)]
         public void CreatePost(string title, string content, bool isAnonymous)
