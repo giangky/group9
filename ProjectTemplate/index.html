@@ -75,7 +75,28 @@
                 }
             });
         }
-        
+
+        // Function to log off
+        function logOut() {
+            $.ajax({
+                type: "POST",
+                url: webMethod,
+                data: parameters,
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (msg) {
+                    if (msg.d) {
+                        window.location.href = "login.hmtl";
+                    }
+                },
+                error: function (e) {
+
+                    alert("boo...");
+                }
+            });
+        }
+       
+
         // Function to show the post creation form
         function showPostForm() {
             document.getElementById('postFormContainer').style.display = 'block';
@@ -301,6 +322,11 @@
             display: flex;
             justify-content: center;
         }
+        .button-containers{
+            width: 100%;
+            display: flex;
+            justify-content: right;
+        }
 		
 	</style>
 	<!--END OF YOUR OWN CSS-->
@@ -340,7 +366,6 @@
             <button onclick="showPostForm()">Post Suggestion</button>
         </div>
 
-
         <div id="postFormContainer" style="display: none;">
             <h1>Create a Suggestion</h1>
             <form id="postForm" onsubmit="submitPost(event)">
@@ -354,6 +379,10 @@
                     <button type="submit">Submit Post</button>
                 </div>
             </form>
+        </div>
+        
+        <div class="button-containers">
+            <button onclick="logOut()">Log Out</button>
         </div>
 
         <!--Container for posts-->

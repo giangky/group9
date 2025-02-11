@@ -235,5 +235,11 @@ namespace ProjectTemplate
             return comments.ToArray();
 
         }
+        [WebMethod(EnableSession = true)]
+        public bool logOut ()
+        {
+            HttpContext.Current.Session.Abandon();
+            return true;
+        }
     }
 }
