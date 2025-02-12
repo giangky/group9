@@ -13,6 +13,9 @@ namespace ProjectTemplate
         public int postId { get; set; }
         public string title { get; set; }
         public string content { get; set; }
+
+        public int upVote { get; set; } = 0;
+        public int downVote { get; set; } = 0;
         
         public bool isAnonymous { get; set; }
 
