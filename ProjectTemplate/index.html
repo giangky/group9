@@ -67,6 +67,7 @@
                         // Store the user ID and display it
                         $("#loggedInUser").text("User: " + userId);
                         $("#userInfo").css("display", "block");
+
                     }
                     else {
                         //server replied false, so let the user know
@@ -133,10 +134,14 @@
             // Get the title and content of the post
             const title = document.getElementById('postTitle').value;
             const content = document.getElementById('postContent').value;
-            const isAnon = 1;
+            
+
+            // Extract the logged-in user ID from the displayed username
+            const userText = $("#loggedInUser").text(); // Example: "User: username"
+            const userId = userText.replace("User: ", "").trim(); // Extracts only the username
 
             var webMethod = "ProjectServices.asmx/CreatePost";
-            var parameters = "{ \"title\":\"" + encodeURI(title) + "\",\"content\":\"" + encodeURI(content) + "\"}";
+            var parameters = "{ \"title\":\"" + encodeURI(title) + "\",\"content\":\"" + encodeURI(content) + "\", \"userId\":\"" + encodeURI(userId) + "\"}";
 
             $.ajax({
                 type: "POST",
@@ -178,11 +183,15 @@
 
                         //Loop through postsArray and format posts
                         for (var i = 0; i < postsArray.length; i++) {
+
                             //html output for each post
-                            var post = "<div class='postRow' id='post" + i + "'>" +
-                                "<h3>" + postsArray[i].title + "</h3>" +
-                                "<p>" + postsArray[i].content + "</p>" +
-                                "<hr></div>";
+                            var post = 
+                            "<div class='postRow' id='post" + i + "'>" +
+                            "<h3>" + postsArray[i].title + "</h3>" +
+                            "<p class='postUser'>Posted by: " + postsArray[i].userId + "</p>" + 
+                            "<p>" + postsArray[i].content + "</p>" +
+                            "<hr></div>";
+                         
 
                             $("#postsContainer").append(post);
 
@@ -335,17 +344,14 @@
             width: 100%;
         }
 
-        .post {
-            background-color: #ffffff;
-            padding: 20px;
-            margin-bottom: 20px;
-            border-radius: 8px;
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        .postUser {
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: gray;
+            margin-top: -15px;
+            margin-bottom: 5px; 
         }
 
-        .post h2 {
-           margin-top: 0;
-        }
         .weeklyQuestion {
             background-color: lightblue;
             display: flex;
@@ -357,14 +363,11 @@
             padding-right: 10px;
             font-size: 18px;
          }
-         .title {
-            font-size: 27px;
-            font-weight: 520;
-            padding-bottom: 10px;
-         }
+        
          #logonPanel, #feedbackPanel {
              display: none;
          }
+
 
         .button-container {
             width: 100%;

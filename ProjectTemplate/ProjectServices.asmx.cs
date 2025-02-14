@@ -11,6 +11,7 @@ using System.Web.UI.WebControls;
 using System.Runtime.Remoting.Messaging;
 using System.Configuration;
 using System.Xml.Linq;
+using System.Runtime.Remoting.Contexts;
 
 namespace ProjectTemplate
 {
@@ -97,29 +98,28 @@ namespace ProjectTemplate
             if (sqlDt.Rows.Count > 0)
             {
 
-                //if we found an account, store the id and admin status in the session
-                //so we can check those values later on other method calls to see if they 
-                //are 1) logged in at all, and 2) and admin or not
                 Session["id"] = sqlDt.Rows[0]["id"];
                 Session["admin"] = sqlDt.Rows[0]["admin"];
                 success = true;
+                
             }
-            //return the result!
+            // Return an object containing both success and isAdmin
             return success;
         }
         //Insert query for creating a post
         [WebMethod(EnableSession = true)]
-        public void CreatePost(string title, string content)
+        public void CreatePost(string title, string content, string userId)
         {
 
-            string sqlInsert = "INSERT into posts (title, content, created_at) " +
-                "values(@title, @content, NOW());";
+            string sqlInsert = "INSERT into posts (title, content, userid, created_at) " +
+                "values(@title, @content, @userId, NOW());";
 
             MySqlConnection sqlConnection = new MySqlConnection(getConString());
             MySqlCommand sqlCommand = new MySqlCommand(sqlInsert, sqlConnection);
 
             sqlCommand.Parameters.AddWithValue("@title", HttpUtility.UrlDecode(title));
             sqlCommand.Parameters.AddWithValue("@content", HttpUtility.UrlDecode(content));
+            sqlCommand.Parameters.AddWithValue("@userId", userId);
             
 
             sqlConnection.Open();
@@ -146,7 +146,10 @@ namespace ProjectTemplate
             MySqlConnection sqlConnection = new MySqlConnection(getConString());
 
             //SQL query to select variables from table
-            string sqlSelect = "SELECT post_id, title, content, is_anon FROM posts ORDER BY created_at DESC LIMIT 5";
+            string sqlSelect = "SELECT p.post_id, p.title, p.content, p.userid, a.admin " +
+                                "FROM posts p " +
+                                "LEFT JOIN accounts a ON p.userid = a.userid " + // Join to check if poster is an admin
+                                "ORDER BY p.created_at DESC LIMIT 5";
 
             MySqlCommand sqlCommand = new MySqlCommand(sqlSelect, sqlConnection);
 
@@ -156,15 +159,20 @@ namespace ProjectTemplate
 
             //List to hold posts
             List<Post> posts = new List<Post>();
+           
 
             for (int i = 0; i < sqlDt.Rows.Count; i++)
             {
+                bool isPostFromAdmin = sqlDt.Rows[i]["admin"] != DBNull.Value && Convert.ToBoolean(sqlDt.Rows[i]["admin"]);
+                string displayedUserId = isPostFromAdmin ? sqlDt.Rows[i]["userid"].ToString() : "Anonymous"; // Show only if admin
+
                 posts.Add(new Post
                 {
-                    //postId = Convert.ToInt32(sqlDt.Rows[i]["post_id"]),
                     title = sqlDt.Rows[i]["title"].ToString(),
+                    userId = displayedUserId, // Display only if admin, otherwise "Anonymous"
                     content = sqlDt.Rows[i]["content"].ToString()
                 });
+
             }
             //Return array 
             return posts.ToArray();
@@ -173,18 +181,18 @@ namespace ProjectTemplate
 
         //Insert query for creating a comment (Anonymous or Not)
         [WebMethod(EnableSession = true)]
-        public void CreateComment(int postId, string content, bool isAnon)
+        public void CreateComment(int postId, string content)
         {
 
-            string sqlInsert = "INSERT into comments (post_id, content, is_anon, created_at) " +
-                "values(@postId, @content, @isAnon, NOW());";
+            string sqlInsert = "INSERT into comments (post_id, content, created_at) " +
+                "values(@postId, @content, NOW());";
 
             MySqlConnection sqlConnection = new MySqlConnection(getConString());
             MySqlCommand sqlCommand = new MySqlCommand(sqlInsert, sqlConnection);
 
             sqlCommand.Parameters.AddWithValue("@postId", postId);
             sqlCommand.Parameters.AddWithValue("@content", HttpUtility.UrlDecode(content));
-            sqlCommand.Parameters.AddWithValue("@isAnon", isAnon ? 1 : 0);
+            
 
             sqlConnection.Open();
 
