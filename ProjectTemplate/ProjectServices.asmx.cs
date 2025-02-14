@@ -109,18 +109,18 @@ namespace ProjectTemplate
         }
         //Insert query for creating a post
         [WebMethod(EnableSession = true)]
-        public void CreatePost(string title, string content, bool isAnonymous)
+        public void CreatePost(string title, string content)
         {
 
-            string sqlInsert = "INSERT into posts (title, content, is_anonymous, created_at) " +
-                "values(@title, @content, @isAnonymous, NOW());";
+            string sqlInsert = "INSERT into posts (title, content, created_at) " +
+                "values(@title, @content, NOW());";
 
             MySqlConnection sqlConnection = new MySqlConnection(getConString());
             MySqlCommand sqlCommand = new MySqlCommand(sqlInsert, sqlConnection);
 
             sqlCommand.Parameters.AddWithValue("@title", HttpUtility.UrlDecode(title));
             sqlCommand.Parameters.AddWithValue("@content", HttpUtility.UrlDecode(content));
-            sqlCommand.Parameters.AddWithValue("@isAnonymous", isAnonymous ? 1 : 0);
+            
 
             sqlConnection.Open();
 
@@ -161,7 +161,7 @@ namespace ProjectTemplate
             {
                 posts.Add(new Post
                 {
-                    postId = Convert.ToInt32(sqlDt.Rows[i]["post_id"]),
+                    //postId = Convert.ToInt32(sqlDt.Rows[i]["post_id"]),
                     title = sqlDt.Rows[i]["title"].ToString(),
                     content = sqlDt.Rows[i]["content"].ToString()
                 });

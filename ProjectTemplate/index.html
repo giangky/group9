@@ -133,7 +133,7 @@
             // Get the title and content of the post
             const title = document.getElementById('postTitle').value;
             const content = document.getElementById('postContent').value;
-            const isAnon = true;
+            const isAnon = 1;
 
             var webMethod = "ProjectServices.asmx/CreatePost";
             var parameters = "{ \"title\":\"" + encodeURI(title) + "\",\"content\":\"" + encodeURI(content) + "\"}";
@@ -214,7 +214,13 @@
                 }
             });
         }
-
+    // Function to track post char limit
+    function updateCharCount() {
+        var textArea = document.getElementById("postContent");
+        var charCount = document.getElementById("charCount");
+        var remaining = 500 - textArea.value.length;
+        charCount.textContent = remaining + " characters remaining";
+    }
 
         // Ensure that posts are loaded when the page is ready
         $(document).ready(function () {
@@ -394,6 +400,11 @@
             border-radius: 5px;
             cursor: pointer;
         }
+        #charCount {
+            text-align: right;
+            font-size: 14px;
+            color: gray;
+        }
 
 		
 	</style>
@@ -446,8 +457,10 @@
                 <label for="postTitle">Post Title</label>
                 <input type="text" id="postTitle" name="postTitle" placeholder="Enter the title of your post" required>
 
+                <!--Content for feedback form limited to 500 chars-->
                 <label for="postContent">Post Content</label>
-                <textarea id="postContent" name="postContent" placeholder="Write your post content here" required></textarea>
+                <textarea id="postContent" name="postContent" placeholder="Write your post content here" required maxlength="500" oninput="updateCharCount()"></textarea>
+                <p id="charCount">500 chatacters remaining</p>
 
                 <div class="button-containter">
                     <button type="submit">Submit Post</button>
