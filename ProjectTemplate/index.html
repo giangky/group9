@@ -173,6 +173,24 @@
             });
 
         }
+
+        function GetQuestion() {
+            var webMethod = "ProjectServices.asmx/GetQuestion";
+            $.ajax({
+                type: "POST",
+                url: webMethod,
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (msg) {
+                    document.getElementById("resultText").innerText = msg.d
+                },
+                error: function (e) {
+                    document.getElementById("resultText").innerText = "Error fetching data."
+                }
+            });
+        }
+
+
         // Ensure that posts are loaded when the page is ready
         $(document).ready(function () {
             showPanel("logonPanel");
@@ -331,7 +349,7 @@
 	</style>
 	<!--END OF YOUR OWN CSS-->
 </head>
-<body>
+<body onload="GetQuestion()">
 	    
     <div id="logonPanel" class="container">
         <h1>Log In</h1>
@@ -358,7 +376,7 @@
             <div class="title">
                 <span>Weekly Question</span>
             </div>
-            <span>Do you like the coffee?</span>
+            <span id="resultText"></span>
         </div>
 
         <h1>Feedback Dashboard</h1>
