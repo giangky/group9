@@ -28,10 +28,10 @@
 				}
 			});
         }
+        var contentPanel = ["logonPanel", "feedbackPanel"];
         // Funtion to change active panel being displayed
         function showPanel(panelName) {
-       
-            var contentPanel = ["logonPanel", "feedbackPanel"];
+            clearData();
             for (var i = 0; i < contentPanel.length; i++) {
                 if (panelName == contentPanel[i]) {
                     $("#" + contentPanel[i]).css("display", "block");
@@ -59,6 +59,7 @@
                 dataType: "json",
                 success: function (msg) {
                     if (msg.d) {
+                        
                         //server replied true, so show the accounts panel
                         showPanel('feedbackPanel');
                         GetPosts();
@@ -75,9 +76,20 @@
                 }
             });
         }
+        function clearData() {
+            clearLogon();
+        }
+
+        //resets the logon inputs
+        function clearLogon() {
+            $('#logonId').val("");
+            $('#logonPassword').val("");
+        }
 
         // Function to log off
         function logOut() {
+            var webMethod = "ProjectServices.asmx/LogOut";
+            var parameters = "{}";
             $.ajax({
                 type: "POST",
                 url: webMethod,
@@ -86,7 +98,7 @@
                 dataType: "json",
                 success: function (msg) {
                     if (msg.d) {
-                        window.location.href = "login.hmtl";
+                        showPanel('logonPanel');
                     }
                 },
                 error: function (e) {
@@ -109,6 +121,7 @@
             // Get the title and content of the post
             const title = document.getElementById('postTitle').value;
             const content = document.getElementById('postContent').value;
+            const isAnon = true;
 
             var webMethod = "ProjectServices.asmx/CreatePost";
             var parameters = "{ \"title\":\"" + encodeURI(title) + "\",\"content\":\"" + encodeURI(content) + "\"}";

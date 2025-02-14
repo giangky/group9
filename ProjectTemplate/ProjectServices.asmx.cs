@@ -146,7 +146,7 @@ namespace ProjectTemplate
             MySqlConnection sqlConnection = new MySqlConnection(getConString());
 
             //SQL query to select variables from table
-            string sqlSelect = "SELECT id, title, content, is_anonymous FROM posts ORDER BY created_at DESC LIMIT 5";
+            string sqlSelect = "SELECT post_id, title, content, is_anon FROM posts ORDER BY created_at DESC LIMIT 5";
 
             MySqlCommand sqlCommand = new MySqlCommand(sqlSelect, sqlConnection);
 
@@ -161,8 +161,8 @@ namespace ProjectTemplate
             {
                 posts.Add(new Post
                 {
-                    postId = Convert.ToInt32(sqlDt.Rows[i]["id"]),
-                    title = sqlDt.Rows[i]["is_anonymous"].ToString() == "1" ? "Anonymous" : sqlDt.Rows[i]["title"].ToString(),
+                    postId = Convert.ToInt32(sqlDt.Rows[i]["post_id"]),
+                    title = sqlDt.Rows[i]["title"].ToString(),
                     content = sqlDt.Rows[i]["content"].ToString()
                 });
             }
@@ -173,18 +173,18 @@ namespace ProjectTemplate
 
         //Insert query for creating a comment (Anonymous or Not)
         [WebMethod(EnableSession = true)]
-        public void CreateComment(int postId, string content, bool isAnonymous)
+        public void CreateComment(int postId, string content, bool isAnon)
         {
 
-            string sqlInsert = "INSERT into comments (post_id, content, is_anonymous, created_at) " +
-                "values(@postId, @content, @isAnonymous, NOW());";
+            string sqlInsert = "INSERT into comments (post_id, content, is_anon, created_at) " +
+                "values(@postId, @content, @isAnon, NOW());";
 
             MySqlConnection sqlConnection = new MySqlConnection(getConString());
             MySqlCommand sqlCommand = new MySqlCommand(sqlInsert, sqlConnection);
 
             sqlCommand.Parameters.AddWithValue("@postId", postId);
             sqlCommand.Parameters.AddWithValue("@content", HttpUtility.UrlDecode(content));
-            sqlCommand.Parameters.AddWithValue("@isAnonymous", isAnonymous ? 1 : 0);
+            sqlCommand.Parameters.AddWithValue("@isAnon", isAnon ? 1 : 0);
 
             sqlConnection.Open();
 
