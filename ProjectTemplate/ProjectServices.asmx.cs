@@ -242,28 +242,19 @@ namespace ProjectTemplate
             //gets the current date
             string date = DateTime.Today.ToString("yyyy-MM-dd");
 
-            //select query gets the question that belongs to the current week
             string sqlSelect = "SELECT question FROM questions WHERE week<=@weekValue ORDER BY id DESC LIMIT 1";
 
-            //sets up connection object
             MySqlConnection sqlConnection = new MySqlConnection(getConString());
-            //sets up command object to use connection and query
             MySqlCommand sqlCommand = new MySqlCommand(sqlSelect, sqlConnection);
 
-            //tell our command to replace the @parameters with real values
-            //we decode them because they came to us via the web so they were encoded
-            //for transmission (funky characters escaped, mostly)
             sqlCommand.Parameters.AddWithValue("@weekValue", HttpUtility.UrlDecode(date));
 
-            //a data adapter acts like a bridge between our command object and 
-            //the data we are trying to get back and put in a table object
             MySqlDataAdapter sqlDa = new MySqlDataAdapter(sqlCommand);
-            //here's the table we want to fill with the results from our query
             string weeklyQuestion = string.Empty;
 
             DataTable sqlDt = new DataTable();
-            //here we go filling it!
             sqlDa.Fill(sqlDt);
+
             if (sqlDt.Rows.Count > 0)
             {
                 weeklyQuestion = (string)sqlDt.Rows[0]["question"];
@@ -271,7 +262,6 @@ namespace ProjectTemplate
             {
                 weeklyQuestion = "Check back again for the Weekly Question!";
             }
-            //return the result!
             return weeklyQuestion;
         }
         [WebMethod(EnableSession = true)]
@@ -282,14 +272,12 @@ namespace ProjectTemplate
         }
 
         //NEW delete-edit comment BRANCH
-        //EXAMPLE OF AN UPDATE QUERY
         [WebMethod(EnableSession = true)]
         public void EditComment(string postID, string content)
         {
             if (Convert.ToInt32(Session["admin"]) == 1)
             {
-                //string sqlConnectString = System.Configuration.ConfigurationManager.ConnectionStrings["myDB"].ConnectionString;
-                //this is a simple update, with parameters to pass in values
+        
                 string sqlSelect = "update posts set content=@contentValue where post_id=@idValue";
 
                 MySqlConnection sqlConnection = new MySqlConnection(getConString());
@@ -310,7 +298,6 @@ namespace ProjectTemplate
             }
         }
 
-        //EXAMPLE OF A DELETE QUERY
         [WebMethod(EnableSession = true)]
         public void DeleteComment(string postID)
         {
