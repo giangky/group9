@@ -28,7 +28,100 @@
 				}
 			});
         }
-        
+        var contentPanel = ["logonPanel", "feedbackPanel"];
+        // Funtion to change active panel being displayed
+        function showPanel(panelName) {
+            clearData();
+            for (var i = 0; i < contentPanel.length; i++) {
+                if (panelName == contentPanel[i]) {
+                    $("#" + contentPanel[i]).css("display", "block");
+
+                } else {
+                    $("#" + contentPanel[i]).css("display", "none");
+                }
+               
+            }
+
+        }
+      
+        // Function to LogOn to system
+        function LogOn(userId, pass) {
+            
+            var webMethod = "ProjectServices.asmx/LogOn";
+            var parameters = "{\"userid\":\"" + encodeURI(userId) + "\",\"pass\":\"" + encodeURI(pass) + "\"}";
+
+            //jQuery ajax method
+            $.ajax({
+                type: "POST",
+                url: webMethod,
+                data: parameters,
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (msg) {
+                    if (msg.d) {
+                        
+                        //server replied true, so show the accounts panel
+                        showPanel('feedbackPanel');
+                        GetPosts();
+
+                        // Store the user ID and display it
+                        $("#loggedInUser").text("User: " + userId);
+                        $("#userInfo").css("display", "block");
+
+                    }
+                    else {
+                        //server replied false, so let the user know
+                        //the logon failed
+                        alert("logon failed");
+                    }
+                },
+                error: function (e) {
+                   
+                    alert("boo...");
+                }
+            });
+        }
+        function clearData() {
+            clearLogon();
+            clearUser();
+        }
+
+        //resets the logon inputs
+        function clearLogon() {
+            $('#logonId').val("");
+            $('#logonPassword').val("");
+        }
+        //hide user info
+        function clearUser() {
+            // Hide user info
+            $("#userInfo").css("display", "none");
+            $("#loggedInUser").text(""); // Clear the username
+        }
+
+        // Function to log off
+        function logOut() {
+            var webMethod = "ProjectServices.asmx/LogOut";
+            var parameters = "{}";
+            $.ajax({
+                type: "POST",
+                url: webMethod,
+                data: parameters,
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (msg) {
+                    if (msg.d) {
+                        showPanel('logonPanel');
+                        clearUser();
+                    }
+                },
+                error: function (e) {
+
+                    alert("boo...");
+                }
+            });
+        }
+       
+
         // Function to show the post creation form
         function showPostForm() {
             document.getElementById('postFormContainer').style.display = 'block';
@@ -41,9 +134,14 @@
             // Get the title and content of the post
             const title = document.getElementById('postTitle').value;
             const content = document.getElementById('postContent').value;
+            
+
+            // Extract the logged-in user ID from the displayed username
+            const userText = $("#loggedInUser").text(); // Example: "User: username"
+            const userId = userText.replace("User: ", "").trim(); // Extracts only the username
 
             var webMethod = "ProjectServices.asmx/CreatePost";
-            var parameters = "{ \"title\":\"" + encodeURI(title) + "\",\"content\":\"" + encodeURI(content) + "\"}";
+            var parameters = "{ \"title\":\"" + encodeURI(title) + "\",\"content\":\"" + encodeURI(content) + "\", \"userId\":\"" + encodeURI(userId) + "\"}";
 
             $.ajax({
                 type: "POST",
@@ -85,11 +183,15 @@
 
                         //Loop through postsArray and format posts
                         for (var i = 0; i < postsArray.length; i++) {
+
                             //html output for each post
-                            var post = "<div class='postRow' id='post" + i + "'>" +
-                                "<h3>" + postsArray[i].title + "</h3>" +
-                                "<p>" + postsArray[i].content + "</p>" +
-                                "<hr></div>";
+                            var post = 
+                            "<div class='postRow' id='post" + i + "'>" +
+                            "<h3>" + postsArray[i].title + "</h3>" +
+                            "<p class='postUser'>Posted by: " + postsArray[i].userId + "</p>" + 
+                            "<p>" + postsArray[i].content + "</p>" +
+                            "<hr></div>";
+                         
 
                             $("#postsContainer").append(post);
 
@@ -105,9 +207,33 @@
             });
 
         }
+
+        function GetQuestion() {
+            var webMethod = "ProjectServices.asmx/GetQuestion";
+            $.ajax({
+                type: "POST",
+                url: webMethod,
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (msg) {
+                    document.getElementById("resultText").innerText = msg.d
+                },
+                error: function (e) {
+                    document.getElementById("resultText").innerText = "Error fetching data."
+                }
+            });
+        }
+    // Function to track post char limit
+    function updateCharCount() {
+        var textArea = document.getElementById("postContent");
+        var charCount = document.getElementById("charCount");
+        var remaining = 500 - textArea.value.length;
+        charCount.textContent = remaining + " characters remaining";
+    }
+
         // Ensure that posts are loaded when the page is ready
         $(document).ready(function () {
-            GetPosts(); // Call GetPosts when the page is loaded
+            showPanel("logonPanel");
         });
         
 	</script>
@@ -115,6 +241,15 @@
 
 	<!--AND YOUR OWN CSS CAN GO HERE AS WELL-->
 	<style>
+        html, body {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            margin: 0px;
+            padding: 0px;
+            overflow: hidden;
+            font-family: 'Century Gothic';
+        }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -155,6 +290,7 @@
             color: #555;
             font-weight: 500;
         }
+
 
         input, textarea {
             width: 100%;
@@ -208,52 +344,145 @@
             width: 100%;
         }
 
-        .post {
-            background-color: #ffffff;
-            padding: 20px;
-            margin-bottom: 20px;
-            border-radius: 8px;
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        .postUser {
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: gray;
+            margin-top: -15px;
+            margin-bottom: 5px; 
         }
 
-        .post h2 {
-           margin-top: 0;
+        .weeklyQuestion {
+            background-color: lightgrey;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 1px solid gray;
+            border-radius: 7px;
+            padding-left: 10px;
+            padding-right: 10px;
+            font-size: 20px;
+         }
+         .title {
+            font-size: 27px;
+            font-weight: 520;
+            padding-bottom: 6px;
+         }
+
+        
+         #logonPanel, #feedbackPanel {
+             display: none;
+         }
+
+
+        .button-container {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+        }
+        .button-containers{
+            width: 100%;
+            display: flex;
+            justify-content: right;
+        }
+        #userInfo {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            background-color: #007BFF;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            display: none;
+            align-items: center;
+            font-weight: bold;
+        }
+        #loggedInUser {
+            font-weight: bold;
+            margin-right: 15px;
+        }
+        #logOutButton {
+            background-color: red;
+            color: white;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #charCount {
+            text-align: right;
+            font-size: 14px;
+            color: gray;
         }
 
 		
-
 	</style>
 	<!--END OF YOUR OWN CSS-->
 </head>
-<body>
+<body onload="GetQuestion()">
+	    
+    <div id="logonPanel" class="container">
+        <h1>Log In</h1>
+        <form onsubmit="LogOn($('#logonId').val(), $('#logonPassword').val()); return false;">
 
-<!--Main container of the webpage-->
-<div class="container">
-	<h1>Feedback Dashboard</h1>
-	<button onclick="showPostForm()">Post Suggestion</button>
+            <label for="userId">Username</label>
+            <input type="text" id="logonId" placeholder="Enter your username" required>
+
+            <label for="password">Password</label>
+            <input type="password" id="logonPassword" placeholder="Enter your password" required>
+
+            <div class="button-container">
+                <button type="submit">Log In</button>
+            </div>
+        </form>
+    </div>
+	
 
 	<!--Post Suggestion Form-->
-	<div id="postFormContainer" style="display: none;">
-		<h1>Create a Suggestion</h1>
-		<form id="postForm" onsubmit="submitPost(event)">
-			<label for="postTitle">Post Title</label>
-			<input type="text" id="postTitle" name="postTitle" placeholder="Enter the title of your post" required>
+    <div id="feedbackPanel" class="container">
 
-			<label for="postContent">Post Content</label>
-			<textarea id="postContent" name="postContent" placeholder="Write your post content here" required></textarea>
+        <!-- User Info Display -->
+        <div id="userInfo">
+            <span id="loggedInUser"></span>
+            <button id="logOutButton" onclick="logOut()">Log Out</button>
+        </div>
 
-			<div class="button-containter">
-				<button type="submit">Submit Post</button>
-			</div>
-		</form>
-	</div>
+        <!--Weekly Question-->
+        <div class="weeklyQuestion">
+            <div class="title">
+                <span>Weekly Question</span>
+            </div>
+            <span id="resultText"></span>
+        </div>
 
-	<!--Container for posts-->
-	<div id="postsContainer"></div>
+        <h1>Feedback Dashboard</h1>
+        <div class="button-container">
+            <button onclick="showPostForm()">Post Suggestion</button>
+        </div>
 
-    
+        <div id="postFormContainer" style="display: none;">
+            <h1>Create a Suggestion</h1>
+            <form id="postForm" onsubmit="submitPost(event)">
+                <label for="postTitle">Post Title</label>
+                <input type="text" id="postTitle" name="postTitle" placeholder="Enter the title of your post" required>
 
-</div>
+                <!--Content for feedback form limited to 500 chars-->
+                <label for="postContent">Post Content</label>
+                <textarea id="postContent" name="postContent" placeholder="Write your post content here" required maxlength="500" oninput="updateCharCount()"></textarea>
+                <p id="charCount">500 chatacters remaining</p>
+
+                <div class="button-containter">
+                    <button type="submit">Submit Post</button>
+                </div>
+            </form>
+        </div>
+
+        <!--Container for posts-->
+        <div id="postsContainer"></div>
+
+    </div>
+
+
     <!--<button onclick="javascript: TestButtonHandler();">Click here to test connection!</button>-->
 </body>
 </html>
