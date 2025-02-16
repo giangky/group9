@@ -250,42 +250,26 @@ namespace ProjectTemplate
             //gets the current date
             string date = DateTime.Today.ToString("yyyy-MM-dd");
 
-        
-            //select query gets the question that belongs to the current week
             string sqlSelect = "SELECT question FROM questions WHERE week<=@weekValue ORDER BY id DESC LIMIT 1";
 
-            //sets up connection object
             MySqlConnection sqlConnection = new MySqlConnection(getConString());
-            //sets up command object to use connection and query
             MySqlCommand sqlCommand = new MySqlCommand(sqlSelect, sqlConnection);
 
-            //tell our command to replace the @parameters with real values
-            //we decode them because they came to us via the web so they were encoded
-            //for transmission (funky characters escaped, mostly)
             sqlCommand.Parameters.AddWithValue("@weekValue", HttpUtility.UrlDecode(date));
 
-            //a data adapter acts like a bridge between our command object and 
-            //the data we are trying to get back and put in a table object
             MySqlDataAdapter sqlDa = new MySqlDataAdapter(sqlCommand);
-            //here's the table we want to fill with the results from our query
             string weeklyQuestion = string.Empty;
 
             DataTable sqlDt = new DataTable();
-            //here we go filling it!
             sqlDa.Fill(sqlDt);
-            //check to see if any rows were returned.  If they were, it means it's 
-            //a legit account
+
             if (sqlDt.Rows.Count > 0)
             {
-                //if we found an account, store the id and admin status in the session
-                //so we can check those values later on other method calls to see if they 
-                //are 1) logged in at all, and 2) and admin or not
                 weeklyQuestion = (string)sqlDt.Rows[0]["question"];
             } else
             {
                 weeklyQuestion = "Check back again for the Weekly Question!";
             }
-            //return the result!
             return weeklyQuestion;
         }
         [WebMethod(EnableSession = true)]
@@ -293,6 +277,57 @@ namespace ProjectTemplate
         {
             HttpContext.Current.Session.Abandon();
             return true;
+        }
+
+        //NEW delete-edit comment BRANCH
+        [WebMethod(EnableSession = true)]
+        public void EditComment(string postID, string content)
+        {
+            if (Convert.ToInt32(Session["admin"]) == 1)
+            {
+        
+                string sqlSelect = "update posts set content=@contentValue where post_id=@idValue";
+
+                MySqlConnection sqlConnection = new MySqlConnection(getConString());
+                MySqlCommand sqlCommand = new MySqlCommand(sqlSelect, sqlConnection);
+
+                sqlCommand.Parameters.AddWithValue("@idValue", HttpUtility.UrlDecode(postID));
+                sqlCommand.Parameters.AddWithValue("@contentValue", HttpUtility.UrlDecode(content));
+
+                sqlConnection.Open();
+                try
+                {
+                    sqlCommand.ExecuteNonQuery();
+                }
+                catch (Exception e)
+                {
+                }
+                sqlConnection.Close();
+            }
+        }
+
+        [WebMethod(EnableSession = true)]
+        public void DeleteComment(string postID)
+        {
+            if (Convert.ToInt32(Session["admin"]) == 1)
+            {
+                string sqlSelect = "delete from posts where post_id=@idValue";
+
+                MySqlConnection sqlConnection = new MySqlConnection(getConString());
+                MySqlCommand sqlCommand = new MySqlCommand(sqlSelect, sqlConnection);
+
+                sqlCommand.Parameters.AddWithValue("@idValue", HttpUtility.UrlDecode(postID));
+
+                sqlConnection.Open();
+                try
+                {
+                    sqlCommand.ExecuteNonQuery();
+                }
+                catch (Exception e)
+                {
+                }
+                sqlConnection.Close();
+            }
         }
     }
 }
