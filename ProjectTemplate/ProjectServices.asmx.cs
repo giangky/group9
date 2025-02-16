@@ -11,6 +11,7 @@ using System.Web.UI.WebControls;
 using System.Runtime.Remoting.Messaging;
 using System.Configuration;
 using System.Xml.Linq;
+using System.Net.Mail;
 
 namespace ProjectTemplate
 {
