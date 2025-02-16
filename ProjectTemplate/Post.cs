@@ -14,6 +14,8 @@ namespace ProjectTemplate
         public string title { get; set; }
         public string content { get; set; }
 
+        public string userId { get; set; }
+
         public int upVote { get; set; } = 0;
         public int downVote { get; set; } = 0;
         

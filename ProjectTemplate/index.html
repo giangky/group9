@@ -28,10 +28,10 @@
 				}
 			});
         }
+        var contentPanel = ["logonPanel", "feedbackPanel"];
         // Funtion to change active panel being displayed
         function showPanel(panelName) {
-       
-            var contentPanel = ["logonPanel", "feedbackPanel"];
+            clearData();
             for (var i = 0; i < contentPanel.length; i++) {
                 if (panelName == contentPanel[i]) {
                     $("#" + contentPanel[i]).css("display", "block");
@@ -59,9 +59,15 @@
                 dataType: "json",
                 success: function (msg) {
                     if (msg.d) {
+                        
                         //server replied true, so show the accounts panel
                         showPanel('feedbackPanel');
                         GetPosts();
+
+                        // Store the user ID and display it
+                        $("#loggedInUser").text("User: " + userId);
+                        $("#userInfo").css("display", "block");
+
                     }
                     else {
                         //server replied false, so let the user know
@@ -75,9 +81,27 @@
                 }
             });
         }
+        function clearData() {
+            clearLogon();
+            clearUser();
+        }
+
+        //resets the logon inputs
+        function clearLogon() {
+            $('#logonId').val("");
+            $('#logonPassword').val("");
+        }
+        //hide user info
+        function clearUser() {
+            // Hide user info
+            $("#userInfo").css("display", "none");
+            $("#loggedInUser").text(""); // Clear the username
+        }
 
         // Function to log off
         function logOut() {
+            var webMethod = "ProjectServices.asmx/LogOut";
+            var parameters = "{}";
             $.ajax({
                 type: "POST",
                 url: webMethod,
@@ -86,7 +110,8 @@
                 dataType: "json",
                 success: function (msg) {
                     if (msg.d) {
-                        window.location.href = "login.hmtl";
+                        showPanel('logonPanel');
+                        clearUser();
                     }
                 },
                 error: function (e) {
@@ -109,9 +134,14 @@
             // Get the title and content of the post
             const title = document.getElementById('postTitle').value;
             const content = document.getElementById('postContent').value;
+            
+
+            // Extract the logged-in user ID from the displayed username
+            const userText = $("#loggedInUser").text(); // Example: "User: username"
+            const userId = userText.replace("User: ", "").trim(); // Extracts only the username
 
             var webMethod = "ProjectServices.asmx/CreatePost";
-            var parameters = "{ \"title\":\"" + encodeURI(title) + "\",\"content\":\"" + encodeURI(content) + "\"}";
+            var parameters = "{ \"title\":\"" + encodeURI(title) + "\",\"content\":\"" + encodeURI(content) + "\", \"userId\":\"" + encodeURI(userId) + "\"}";
 
             $.ajax({
                 type: "POST",
@@ -153,11 +183,15 @@
 
                         //Loop through postsArray and format posts
                         for (var i = 0; i < postsArray.length; i++) {
+
                             //html output for each post
-                            var post = "<div class='postRow' id='post" + i + "'>" +
-                                "<h3>" + postsArray[i].title + "</h3>" +
-                                "<p>" + postsArray[i].content + "</p>" +
-                                "<hr></div>";
+                            var post = 
+                            "<div class='postRow' id='post" + i + "'>" +
+                            "<h3>" + postsArray[i].title + "</h3>" +
+                            "<p class='postUser'>Posted by: " + postsArray[i].userId + "</p>" + 
+                            "<p>" + postsArray[i].content + "</p>" +
+                            "<hr></div>";
+                         
 
                             $("#postsContainer").append(post);
 
@@ -189,7 +223,13 @@
                 }
             });
         }
-
+    // Function to track post char limit
+    function updateCharCount() {
+        var textArea = document.getElementById("postContent");
+        var charCount = document.getElementById("charCount");
+        var remaining = 500 - textArea.value.length;
+        charCount.textContent = remaining + " characters remaining";
+    }
 
         // Ensure that posts are loaded when the page is ready
         $(document).ready(function () {
@@ -304,17 +344,14 @@
             width: 100%;
         }
 
-        .post {
-            background-color: #ffffff;
-            padding: 20px;
-            margin-bottom: 20px;
-            border-radius: 8px;
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        .postUser {
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: gray;
+            margin-top: -15px;
+            margin-bottom: 5px; 
         }
 
-        .post h2 {
-           margin-top: 0;
-        }
         .weeklyQuestion {
             background-color: lightgrey;
             display: flex;
@@ -331,9 +368,12 @@
             font-weight: 520;
             padding-bottom: 6px;
          }
+
+        
          #logonPanel, #feedbackPanel {
              display: none;
          }
+
 
         .button-container {
             width: 100%;
@@ -345,6 +385,36 @@
             display: flex;
             justify-content: right;
         }
+        #userInfo {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            background-color: #007BFF;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            display: none;
+            align-items: center;
+            font-weight: bold;
+        }
+        #loggedInUser {
+            font-weight: bold;
+            margin-right: 15px;
+        }
+        #logOutButton {
+            background-color: red;
+            color: white;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #charCount {
+            text-align: right;
+            font-size: 14px;
+            color: gray;
+        }
+
 		
 	</style>
 	<!--END OF YOUR OWN CSS-->
@@ -371,6 +441,12 @@
 	<!--Post Suggestion Form-->
     <div id="feedbackPanel" class="container">
 
+        <!-- User Info Display -->
+        <div id="userInfo">
+            <span id="loggedInUser"></span>
+            <button id="logOutButton" onclick="logOut()">Log Out</button>
+        </div>
+
         <!--Weekly Question-->
         <div class="weeklyQuestion">
             <div class="title">
@@ -390,17 +466,15 @@
                 <label for="postTitle">Post Title</label>
                 <input type="text" id="postTitle" name="postTitle" placeholder="Enter the title of your post" required>
 
+                <!--Content for feedback form limited to 500 chars-->
                 <label for="postContent">Post Content</label>
-                <textarea id="postContent" name="postContent" placeholder="Write your post content here" required></textarea>
+                <textarea id="postContent" name="postContent" placeholder="Write your post content here" required maxlength="500" oninput="updateCharCount()"></textarea>
+                <p id="charCount">500 chatacters remaining</p>
 
                 <div class="button-containter">
                     <button type="submit">Submit Post</button>
                 </div>
             </form>
-        </div>
-        
-        <div class="button-containers">
-            <button onclick="logOut()">Log Out</button>
         </div>
 
         <!--Container for posts-->
