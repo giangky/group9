@@ -169,7 +169,6 @@
             var webMethod = "ProjectServices.asmx/GetPosts";
             var parameters = "{}";
 
-            //jQuery ajax method
             $.ajax({
                 type: "POST",
                 url: webMethod,
@@ -181,32 +180,40 @@
                         postsArray = msg.d;
                         $("#postsContainer").empty();
 
-                        //Loop through postsArray and format posts
                         for (var i = 0; i < postsArray.length; i++) {
+                            // Generate HTML content for each post
+                            var post = `
+            <div class='postRow' id='post${i}'>
+                <h3>${postsArray[i].title}</h3>
+                <p class='postUser'>Posted by: ${postsArray[i].userId}</p>
+                <p>${postsArray[i].content}</p>
+                <div class='post-footer' style='display: flex; justify-content: space-between; align-items: center;'>
+                    <span id='upvoteCount-${postsArray[i].postId}'>Upvotes: ${postsArray[i].upvoteCount} | Downvotes: ${postsArray[i].downvoteCount}</span>
+                    <button class='upvote-button' onclick='upvotePost(${postsArray[i].postId})'>
+                        <img src='images/upvote-icon.png' alt='Upvote' class='upvote-icon'>
+                    </button>
+                    <button class='downvote-button' onclick='downvotePost(${postsArray[i].postId})'>
+                        <img src='images/downvote-icon.png' alt='Downvote' class='downvote-icon'>
+                    </button>
+                    <div class='postOptions'>
+                        <button onclick='EditPost(${postsArray[i].postId})'>Edit</button>
+                        <button class='delete-btn' onclick='DeletePost(${postsArray[i].postId})'>Delete</button>
+                    </div>
+                </div>
+                <hr>
+            </div>`;
 
-                            //html output for each post
-                            var post = 
-                            "<div class='postRow' id='post" + i + "'>" +
-                            "<div class='postOptions'><button onclick='EditPost()'>Edit</button> <button class='delete-btn' onclick='DeletePost()'>Delete</button></div> " +
-                            "<h3>" + postsArray[i].title + "</h3>" +
-                            "<p class='postUser'>Posted by: " + postsArray[i].userId + "</p>" + 
-                            "<p>" + postsArray[i].content + "</p>" +
-                            "<hr></div>";
-                         
-
+                            // Append each post to the container
                             $("#postsContainer").append(post);
-
                         }
-                    }
-                    else {
+                    } else {
                         $("#postsContainer").append("<p>No posts available at the moment.</p>");
-                    }          
+                    }
                 },
                 error: function (e) {
                     alert("Error fetching posts");
                 }
             });
-
         }
 
         function GetQuestion() {
@@ -429,6 +436,26 @@
             font-size: 14px;
             color: gray;
         }
+        .post-footer {
+            display: flex;
+            justify-content: space-between;
+            
+            width: 100%;
+        }
+
+        .upvote-button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            margin-left: 20px; /* Optional: Adds space between upvote count and the button */
+            transition: background-color 0.3s ease;
+        }
+
+        .upvote-button:hover {
+                background-color: #45a049;
+          }
 
 		
 	</style>

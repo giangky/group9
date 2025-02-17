@@ -90,7 +90,7 @@ namespace ProjectTemplate
             sqlCommand.Parameters.AddWithValue("@userid", HttpUtility.UrlDecode(userid));
             sqlCommand.Parameters.AddWithValue("@pass", HttpUtility.UrlDecode(pass));
 
-         
+
             MySqlDataAdapter sqlDa = new MySqlDataAdapter(sqlCommand);
             //here's the table we want to fill with the results from our query
             DataTable sqlDt = new DataTable();
@@ -104,7 +104,7 @@ namespace ProjectTemplate
                 Session["uid"] = userid;
                 Session["admin"] = sqlDt.Rows[0]["admin"];
                 success = true;
-                
+
             }
             // Return an object containing both success and isAdmin
             return success;
@@ -123,7 +123,7 @@ namespace ProjectTemplate
             sqlCommand.Parameters.AddWithValue("@title", HttpUtility.UrlDecode(title));
             sqlCommand.Parameters.AddWithValue("@content", HttpUtility.UrlDecode(content));
             sqlCommand.Parameters.AddWithValue("@userId", userId);
-            
+
 
             sqlConnection.Open();
 
@@ -162,7 +162,7 @@ namespace ProjectTemplate
 
             //List to hold posts
             List<Post> posts = new List<Post>();
-           
+
 
             for (int i = 0; i < sqlDt.Rows.Count; i++)
             {
@@ -196,7 +196,7 @@ namespace ProjectTemplate
 
             sqlCommand.Parameters.AddWithValue("@postId", postId);
             sqlCommand.Parameters.AddWithValue("@content", HttpUtility.UrlDecode(content));
-            
+
 
             sqlConnection.Open();
 
@@ -247,7 +247,7 @@ namespace ProjectTemplate
             return comments.ToArray();
 
         }
-         //weekly question web method
+        //weekly question web method
         [WebMethod(EnableSession = true)]
         public string GetQuestion()
         {
@@ -270,14 +270,15 @@ namespace ProjectTemplate
             if (sqlDt.Rows.Count > 0)
             {
                 weeklyQuestion = (string)sqlDt.Rows[0]["question"];
-            } else
+            }
+            else
             {
                 weeklyQuestion = "Check back again for the Weekly Question!";
             }
             return weeklyQuestion;
         }
         [WebMethod(EnableSession = true)]
-        public bool logOut ()
+        public bool logOut()
         {
             HttpContext.Current.Session.Abandon();
             return true;
@@ -293,7 +294,7 @@ namespace ProjectTemplate
             }
 
             string userId = Session["uid"].ToString();
-            Boolean isAdmin = Convert.ToBoolean (Session["admin"]);
+            Boolean isAdmin = Convert.ToBoolean(Session["admin"]);
 
 
             string checkQuery = "SELECT userid FROM posts WHERE post_id = @postId";
@@ -325,7 +326,7 @@ namespace ProjectTemplate
             updateCommand.Parameters.AddWithValue("@titleValue", HttpUtility.UrlDecode(title));
             updateCommand.Parameters.AddWithValue("@contentValue", HttpUtility.UrlDecode(content));
 
-            
+
 
             int rowsAffected = updateCommand.ExecuteNonQuery();
             sqlConnection.Close();
@@ -372,7 +373,7 @@ namespace ProjectTemplate
             }
         }
 
-        
+
         [WebMethod(EnableSession = true)]
         public void SendWeeklyFeedbackReminders()
         {
@@ -422,6 +423,92 @@ namespace ProjectTemplate
                 // Log error
             }
 
+        }
+
+        [WebMethod(EnableSession = true)]
+        public object UpvotePost(string userId, int postId)
+        {
+            using (MySqlConnection conn = new MySqlConnection(getConString()))
+            {
+                conn.Open();
+
+                // Step 1: Check if the user has already upvoted the post
+                string checkUpvoteQuery = "SELECT COUNT(*) FROM post_votes WHERE userId = @userId AND postId = @postId AND vote_type = 'upvote'";
+                using (MySqlCommand cmd = new MySqlCommand(checkUpvoteQuery, conn))
+                {
+                    cmd.Parameters.AddWithValue("@userId", userId);
+                    cmd.Parameters.AddWithValue("@postId", postId);
+                    int count = Convert.ToInt32(cmd.ExecuteScalar());
+
+                    if (count > 0)
+                    {
+                        // If the user has already upvoted the post, return a response indicating failure
+                        return new { success = false, message = "You have already upvoted this post." };
+                    }
+                }
+
+                // Step 2: Insert a new upvote into the post_votes table
+                string insertUpvoteQuery = "INSERT INTO post_votes (userId, postId, vote_type) VALUES (@userId, @postId, 'upvote')";
+                using (MySqlCommand cmd = new MySqlCommand(insertUpvoteQuery, conn))
+                {
+                    cmd.Parameters.AddWithValue("@userId", userId);
+                    cmd.Parameters.AddWithValue("@postId", postId);
+                    cmd.ExecuteNonQuery();
+                }
+
+                // Step 3: Update the upvote count in the posts table
+                string updateUpvoteCountQuery = "UPDATE posts SET upvote = upvote + 1 WHERE post_id = @postId";
+                using (MySqlCommand cmd = new MySqlCommand(updateUpvoteCountQuery, conn))
+                {
+                    cmd.Parameters.AddWithValue("@postId", postId);
+                    cmd.ExecuteNonQuery();
+                }
+
+                return new { success = true };
+            }
+        }
+
+        [WebMethod(EnableSession = true)]
+        public object DownvotePost(string userId, int postId)
+        {
+            using (MySqlConnection conn = new MySqlConnection(getConString()))
+            {
+                conn.Open();
+
+                // Step 1: Check if the user has already downvoted the post
+                string checkDownvoteQuery = "SELECT COUNT(*) FROM post_votes WHERE userId = @userId AND postId = @postId AND vote_type = 'downvote'";
+                using (MySqlCommand cmd = new MySqlCommand(checkDownvoteQuery, conn))
+                {
+                    cmd.Parameters.AddWithValue("@userId", userId);
+                    cmd.Parameters.AddWithValue("@postId", postId);
+                    int count = Convert.ToInt32(cmd.ExecuteScalar());
+
+                    if (count > 0)
+                    {
+                        // If the user has already downvoted the post, return a response indicating failure
+                        return new { success = false, message = "You have already downvoted this post." };
+                    }
+                }
+
+                // Step 2: Insert a new downvote into the post_votes table
+                string insertDownvoteQuery = "INSERT INTO post_votes (userId, postId, vote_type) VALUES (@userId, @postId, 'downvote')";
+                using (MySqlCommand cmd = new MySqlCommand(insertDownvoteQuery, conn))
+                {
+                    cmd.Parameters.AddWithValue("@userId", userId);
+                    cmd.Parameters.AddWithValue("@postId", postId);
+                    cmd.ExecuteNonQuery();
+                }
+
+                // Step 3: Update the downvote count in the posts table
+                string updateDownvoteCountQuery = "UPDATE posts SET downvote = downvote + 1 WHERE post_id = @postId";
+                using (MySqlCommand cmd = new MySqlCommand(updateDownvoteCountQuery, conn))
+                {
+                    cmd.Parameters.AddWithValue("@postId", postId);
+                    cmd.ExecuteNonQuery();
+                }
+
+                return new { success = true };
+            }
         }
     }
 }
