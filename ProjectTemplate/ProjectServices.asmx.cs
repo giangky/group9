@@ -13,6 +13,7 @@ using System.Configuration;
 using System.Xml.Linq;
 using System.Runtime.Remoting.Contexts;
 using System.Data.SqlClient;
+using System.Net.Mail;
 
 namespace ProjectTemplate
 {
@@ -354,6 +355,73 @@ namespace ProjectTemplate
                 }
                 sqlConnection.Close();
             }
+        }
+
+
+        [WebMethod(EnableSession = true)]
+        public void SetNotificationPreference(int userId, bool enableNotifications)
+        {
+            string sqlUpdate = "UPDATE users SET receive_notifications = @enable WHERE id = @userId";
+            using (MySqlConnection sqlConnection = new MySqlConnection(getConString()))
+            {
+                MySqlCommand sqlCommand = new MySqlCommand(sqlUpdate, sqlConnection);
+                sqlCommand.Parameters.AddWithValue("@enable", enableNotifications ? 1 : 0);
+                sqlCommand.Parameters.AddWithValue("@userId", userId);
+                sqlConnection.Open();
+                sqlCommand.ExecuteNonQuery();
+            }
+        }
+
+        
+        [WebMethod(EnableSession = true)]
+        public void SendWeeklyFeedbackReminders()
+        {
+            List<(string email, string question)> reminders = new List<(string, string)>();
+
+            using (MySqlConnection sqlConnection = new MySqlConnection(getConString()))
+            {
+                string sqlSelect = @"
+                    SELECT u.email, q.question 
+                    FROM users u, (SELECT question FROM questions ORDER BY week DESC LIMIT 1) q 
+                    WHERE u.receive_notifications = 1";
+
+                MySqlCommand sqlCommand = new MySqlCommand(sqlSelect, sqlConnection);
+                sqlConnection.Open();
+                using (MySqlDataReader reader = sqlCommand.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        reminders.Add((reader["email"].ToString(), reader["question"].ToString()));
+                    }
+                }
+            }
+
+            foreach (var reminder in reminders)
+            {
+                SendEmailReminder(reminder.email, reminder.question);
+            }
+        }
+
+        private void SendEmailReminder(string email, string question)
+        {
+            try
+            {
+                MailMessage mail = new MailMessage();
+                SmtpClient smtpServer = new SmtpClient("smtp.yourserver.com");
+                mail.From = new MailAddress("no-reply@yourcompany.com");
+                mail.To.Add(email);
+                mail.Subject = "Weekly Feedback Reminder";
+                mail.Body = "Don't forget to submit your weekly feedback! Click here to respond: [LINK]";
+                smtpServer.Port = 587;
+                smtpServer.Credentials = new System.Net.NetworkCredential("your_email@yourcompany.com", "yourpassword");
+                smtpServer.EnableSsl = true;
+                smtpServer.Send(mail);
+            }
+            catch (Exception ex)
+            {
+                // Log error
+            }
+
         }
     }
 }
