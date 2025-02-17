@@ -28,7 +28,7 @@
 				}
 			});
         }
-        var contentPanel = ["logonPanel", "feedbackPanel"];
+        var contentPanel = ["logonPanel", "feedbackPanel", "editPostPanel"];
         // Funtion to change active panel being displayed
         function showPanel(panelName) {
             clearData();
@@ -187,6 +187,7 @@
                             //html output for each post
                             var post = 
                             "<div class='postRow' id='post" + i + "'>" +
+                            "<div class='postOptions'><button onclick='EditPost()'>Edit</button> <button class='delete-btn' onclick='DeletePost()'>Delete</button></div> " +
                             "<h3>" + postsArray[i].title + "</h3>" +
                             "<p class='postUser'>Posted by: " + postsArray[i].userId + "</p>" + 
                             "<p>" + postsArray[i].content + "</p>" +
@@ -223,6 +224,10 @@
                 }
             });
         }
+
+        
+
+
     // Function to track post char limit
     function updateCharCount() {
         var textArea = document.getElementById("postContent");
@@ -369,7 +374,17 @@
             padding-bottom: 6px;
          }
 
-        
+         .postOptions {
+             font-size: 15px;
+             position: absolute;
+             right: 32rem;
+             background-color: #ffffff00;
+             color: black;
+             padding: 2px;
+             border: none;
+             margin-right: 5px;
+         }
+
          #logonPanel, #feedbackPanel {
              display: none;
          }
@@ -420,7 +435,7 @@
 	<!--END OF YOUR OWN CSS-->
 </head>
 <body onload="GetQuestion()">
-	    
+
     <div id="logonPanel" class="container">
         <h1>Log In</h1>
         <form onsubmit="LogOn($('#logonId').val(), $('#logonPassword').val()); return false;">
@@ -436,9 +451,9 @@
             </div>
         </form>
     </div>
-	
 
-	<!--Post Suggestion Form-->
+
+    <!--Post Suggestion Form-->
     <div id="feedbackPanel" class="container">
 
         <!-- User Info Display -->
@@ -469,7 +484,7 @@
                 <!--Content for feedback form limited to 500 chars-->
                 <label for="postContent">Post Content</label>
                 <textarea id="postContent" name="postContent" placeholder="Write your post content here" required maxlength="500" oninput="updateCharCount()"></textarea>
-                <p id="charCount">500 chatacters remaining</p>
+                <p id="charCount">500 characters remaining</p>
 
                 <div class="button-containter">
                     <button type="submit">Submit Post</button>
@@ -482,6 +497,7 @@
 
     </div>
 
+    
 
     <!--<button onclick="javascript: TestButtonHandler();">Click here to test connection!</button>-->
 </body>
