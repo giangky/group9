@@ -12,6 +12,7 @@ using System.Runtime.Remoting.Messaging;
 using System.Configuration;
 using System.Xml.Linq;
 using System.Runtime.Remoting.Contexts;
+using System.Data.SqlClient;
 
 namespace ProjectTemplate
 {
@@ -99,6 +100,7 @@ namespace ProjectTemplate
             {
 
                 Session["id"] = sqlDt.Rows[0]["id"];
+                Session["uid"] = userid;
                 Session["admin"] = sqlDt.Rows[0]["admin"];
                 success = true;
                 
@@ -170,7 +172,8 @@ namespace ProjectTemplate
                 {
                     title = sqlDt.Rows[i]["title"].ToString(),
                     userId = displayedUserId, // Display only if admin, otherwise "Anonymous"
-                    content = sqlDt.Rows[i]["content"].ToString()
+                    content = sqlDt.Rows[i]["content"].ToString(),
+                    postId = sqlDt.Rows[i]["post_id"].ToString()
                 });
 
             }
@@ -281,33 +284,56 @@ namespace ProjectTemplate
 
         //NEW delete-edit comment BRANCH
         [WebMethod(EnableSession = true)]
-        public void EditComment(string postID, string content)
+        public String EditComment(string postId, string title, string content)
         {
-            if (Convert.ToInt32(Session["admin"]) == 1)
+            if (Session["admin"] == null || Session["uid"] == null)
             {
-        
-                string sqlSelect = "update posts set content=@contentValue where post_id=@idValue";
-
-                MySqlConnection sqlConnection = new MySqlConnection(getConString());
-                MySqlCommand sqlCommand = new MySqlCommand(sqlSelect, sqlConnection);
-
-                sqlCommand.Parameters.AddWithValue("@idValue", HttpUtility.UrlDecode(postID));
-                sqlCommand.Parameters.AddWithValue("@contentValue", HttpUtility.UrlDecode(content));
-
-                sqlConnection.Open();
-                try
-                {
-                    sqlCommand.ExecuteNonQuery();
-                }
-                catch (Exception e)
-                {
-                }
-                sqlConnection.Close();
+                return "Unauthorized bc null";
             }
+
+            string userId = Session["uid"].ToString();
+            Boolean isAdmin = Convert.ToBoolean (Session["admin"]);
+
+
+            string checkQuery = "SELECT userid FROM posts WHERE post_id = @postId";
+
+            MySqlConnection sqlConnection = new MySqlConnection(getConString());
+            MySqlCommand checkCommand = new MySqlCommand(checkQuery, sqlConnection);
+
+            checkCommand.Parameters.AddWithValue("@postId", HttpUtility.UrlDecode(postId));
+
+            sqlConnection.Open();
+            object result = checkCommand.ExecuteScalar();
+            if (result == null || result == DBNull.Value)
+            {
+                return "Comment not found.";
+            }
+
+            string uid = result.ToString();
+
+
+            if (uid != userId && !isAdmin)
+            {
+                return "Unauthorized. uid: " + uid + "userId: " + userId;
+            }
+
+            string updateQuery = "UPDATE posts SET title=@titleValue, content=@contentValue WHERE post_id=@idValue";
+            MySqlCommand updateCommand = new MySqlCommand(updateQuery, sqlConnection);
+
+            updateCommand.Parameters.AddWithValue("@idValue", HttpUtility.UrlDecode(postId));
+            updateCommand.Parameters.AddWithValue("@titleValue", HttpUtility.UrlDecode(title));
+            updateCommand.Parameters.AddWithValue("@contentValue", HttpUtility.UrlDecode(content));
+
+            
+
+            int rowsAffected = updateCommand.ExecuteNonQuery();
+            sqlConnection.Close();
+            return rowsAffected > 0 ? "Success" : "Failed";
+
         }
 
         [WebMethod(EnableSession = true)]
-        public void DeleteComment(string postID)
+        public void DeleteComment(string postId)
         {
             if (Convert.ToInt32(Session["admin"]) == 1)
             {
@@ -316,7 +342,7 @@ namespace ProjectTemplate
                 MySqlConnection sqlConnection = new MySqlConnection(getConString());
                 MySqlCommand sqlCommand = new MySqlCommand(sqlSelect, sqlConnection);
 
-                sqlCommand.Parameters.AddWithValue("@idValue", HttpUtility.UrlDecode(postID));
+                sqlCommand.Parameters.AddWithValue("@idValue", HttpUtility.UrlDecode(postId));
 
                 sqlConnection.Open();
                 try
