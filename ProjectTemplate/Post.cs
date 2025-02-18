@@ -11,8 +11,8 @@ namespace ProjectTemplate
         public string title { get; set; }
         public string content { get; set; }
         public string userId { get; set; }
-        public int upVote { get; set; }
-        public int downVote { get; set; }
+        public int upvoteCount { get; set; }
+        public int downvoteCount { get; set; }
         public bool isAnonymous { get; set; }
         public DateTime createdAt { get; set; }  // Added to track when the post was created
         public List<Comment> comments { get; set; }  // Added to associate comments with the post

@@ -64,6 +64,9 @@
                         showPanel('feedbackPanel');
                         GetPosts();
 
+                        // Store the user ID in localStorage
+                        localStorage.setItem('userId', userId);
+
                         // Store the user ID and display it
                         $("#loggedInUser").text("User: " + userId);
                         $("#userInfo").css("display", "block");
@@ -134,7 +137,7 @@
             // Get the title and content of the post
             const title = document.getElementById('postTitle').value;
             const content = document.getElementById('postContent').value;
-            
+
 
             // Extract the logged-in user ID from the displayed username
             const userText = $("#loggedInUser").text(); // Example: "User: username"
@@ -183,25 +186,30 @@
                         for (var i = 0; i < postsArray.length; i++) {
                             // Generate HTML content for each post
                             var post = `
-            <div class='postRow' id='post${i}'>
-                <h3>${postsArray[i].title}</h3>
-                <p class='postUser'>Posted by: ${postsArray[i].userId}</p>
-                <p>${postsArray[i].content}</p>
-                <div class='post-footer' style='display: flex; justify-content: space-between; align-items: center;'>
-                    <span id='upvoteCount-${postsArray[i].postId}'>Upvotes: ${postsArray[i].upvoteCount} | Downvotes: ${postsArray[i].downvoteCount}</span>
-                    <button class='upvote-button' onclick='upvotePost(${postsArray[i].postId})'>
-                        <img src='images/upvote-icon.png' alt='Upvote' class='upvote-icon'>
-                    </button>
-                    <button class='downvote-button' onclick='downvotePost(${postsArray[i].postId})'>
-                        <img src='images/downvote-icon.png' alt='Downvote' class='downvote-icon'>
-                    </button>
-                    <div class='postOptions'>
-                        <button onclick='EditPost(${postsArray[i].postId})'>Edit</button>
-                        <button class='delete-btn' onclick='DeletePost(${postsArray[i].postId})'>Delete</button>
-                    </div>
-                </div>
-                <hr>
-            </div>`;
+                                <div class='postRow' id='post${postsArray[i].postId}'>
+                                    <h3>${postsArray[i].title}</h3>
+                                    <p class='postUser'>Posted by: ${postsArray[i].userId}</p>
+                                    <p>${postsArray[i].content}</p>
+                                    <div class='post-footer'>
+                                        
+                                        <div class='vote-buttons'>
+                                            <button class='upvote-button' onclick='votePost(${postsArray[i].postId}, 1)'>
+                                                <img src='Images/Like.png' alt='Upvote' class='upvote-icon'>
+                                            </button>
+                                             <span id='upvoteCount-${postsArray[i].postId}' class='vote-count'>${postsArray[i].upvoteCount}</span>
+                                            <button class='downvote-button' onclick='votePost(${postsArray[i].postId}, -1)'>
+                                                <img src='Images/Dislike.png' alt='Downvote' class='downvote-icon'>
+                                            </button>
+                                            <span id='downvoteCount-${postsArray[i].postId}' class='vote-count'>${postsArray[i].downvoteCount}</span>
+                                        </div>
+                                        <div class='postOptions'>
+                                            <button onclick='EditPost(${postsArray[i].postId})'>Edit</button>
+                                            <button class='delete-btn' onclick='DeletePost(${postsArray[i].postId})'>Delete</button>
+                                        </div>
+                                    </div>
+                                    <hr>
+                                </div>
+                            `;
 
                             // Append each post to the container
                             $("#postsContainer").append(post);
@@ -232,16 +240,61 @@
             });
         }
 
-        
+        // Function to upvote or downvote a post 
+        function votePost(postId, voteType) {
+
+            var userId = getUserId();
+            
+      
+            var webMethod = "ProjectServices.asmx/PostVotes";
+            var parameters = JSON.stringify({
+                "userId": userId,  
+                "postId": postId,  
+                "voteType": voteType 
+            });
+
+            console.log("Sending parameters:", parameters);
+
+            // Ensure voteType is either 1 or -1
+            if (voteType !== 1 && voteType !== -1) {
+                alert("Invalid vote type. Use 1 for upvote or -1 for downvote.");
+                return;
+            }
+
+            $.ajax({
+                type: "POST",
+                url: webMethod,
+                data: parameters,
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (msg) {
+                        alert("Vote successful.");
+                        GetPosts(); //refresh posts after voting
+                   
+                },
+                error: function (e) {
+                    console.error("Error occurred during voting:", e);
+                    console.error("Status:", e.status);
+                    console.error("Response text:", e.responseText);
+                    alert("An error occurred while voting. Check console for details.");
+                }
+            });
+        }
 
 
-    // Function to track post char limit
-    function updateCharCount() {
-        var textArea = document.getElementById("postContent");
-        var charCount = document.getElementById("charCount");
-        var remaining = 500 - textArea.value.length;
-        charCount.textContent = remaining + " characters remaining";
-    }
+        function getUserId() {
+    
+            return localStorage.getItem('userId'); // Example: get from localStorage
+        } 
+
+
+        // Function to track post char limit
+        function updateCharCount() {
+            var textArea = document.getElementById("postContent");
+            var charCount = document.getElementById("charCount");
+            var remaining = 500 - textArea.value.length;
+            charCount.textContent = remaining + " characters remaining";
+        }
 
         // Ensure that posts are loaded when the page is ready
         $(document).ready(function () {
@@ -276,7 +329,7 @@
 
         .container {
             width: 100%;
-            max-width: 600px;
+            max-width: 800px;
             background-color: #ffffff;
             border-radius: 12px;
             padding: 30px;
@@ -395,6 +448,14 @@
          #logonPanel, #feedbackPanel {
              display: none;
          }
+        #feedbackPanel {
+            width: 100%;
+            max-height: 700px;
+            overflow-y: auto;
+        }
+        #logonPanel {
+            max-width: 500px;
+        }
 
 
         .button-container {
@@ -436,26 +497,61 @@
             font-size: 14px;
             color: gray;
         }
+
         .post-footer {
             display: flex;
             justify-content: space-between;
-            
-            width: 100%;
+            align-items: center;
         }
 
-        .upvote-button {
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px 20px;
+        .vote-buttons {
+            display: flex;
+            align-items: center;
+            gap: 5px; 
+        }
+
+        .vote-count {
+            font-size: 15px;
+            color: #555;
+            font: bold;
+        }
+
+        .upvote-button, .downvote-button {
+            background: none;
             border: none;
             cursor: pointer;
-            margin-left: 20px; /* Optional: Adds space between upvote count and the button */
-            transition: background-color 0.3s ease;
+            padding: 5px;
         }
 
-        .upvote-button:hover {
-                background-color: #45a049;
-          }
+        .upvote-icon, .downvote-icon {
+            width: 30px;
+            height: 30px;
+        }
+
+        .postOptions {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: transparent;
+            color: black;
+            border: none;
+            font-size: 14px;
+            padding: 5px;
+        }
+
+        .postOptions button {
+            font-size: 12px;
+            margin-left: 5px;
+        }
+
+        .postRow {
+            position: relative;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #fff;
+        }
 
 		
 	</style>

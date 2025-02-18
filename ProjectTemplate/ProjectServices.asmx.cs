@@ -149,10 +149,16 @@ namespace ProjectTemplate
             MySqlConnection sqlConnection = new MySqlConnection(getConString());
 
             //SQL query to select variables from table
-            string sqlSelect = "SELECT p.post_id, p.title, p.content, p.userid, a.admin " +
-                                "FROM posts p " +
-                                "LEFT JOIN accounts a ON p.userid = a.userid " + // Join to check if poster is an admin
-                                "ORDER BY p.created_at DESC LIMIT 5";
+            string sqlSelect = @"
+                               SELECT p.post_id, p.title,p.content,p.userid,a.admin,p.created_at,
+                               COALESCE(SUM(CASE WHEN v.vote_type = 1 THEN 1 ELSE 0 END), 0) AS upvoteCount,
+                               COALESCE(SUM(CASE WHEN v.vote_type = -1 THEN 1 ELSE 0 END), 0) AS downvoteCount
+                               FROM posts p
+                               LEFT JOIN accounts a ON p.userid = a.userid
+                               LEFT JOIN votes v ON p.post_id = v.post_id
+                               GROUP BY p.post_id, p.title, p.content, p.userid, a.admin, p.created_at
+                               ORDER BY p.created_at DESC
+                               LIMIT 5";
 
             MySqlCommand sqlCommand = new MySqlCommand(sqlSelect, sqlConnection);
 
@@ -174,7 +180,9 @@ namespace ProjectTemplate
                     title = sqlDt.Rows[i]["title"].ToString(),
                     userId = displayedUserId, // Display only if admin, otherwise "Anonymous"
                     content = sqlDt.Rows[i]["content"].ToString(),
-                    postId = sqlDt.Rows[i]["post_id"].ToString()
+                    postId = sqlDt.Rows[i]["post_id"].ToString(),
+                    upvoteCount = Convert.ToInt32(sqlDt.Rows[i]["upvoteCount"]),
+                    downvoteCount = Convert.ToInt32(sqlDt.Rows[i]["downvoteCount"])
                 });
 
             }
@@ -426,89 +434,80 @@ namespace ProjectTemplate
         }
 
         [WebMethod(EnableSession = true)]
-        public object UpvotePost(string userId, int postId)
+        public void PostVotes(string userId, string postId, int voteType)
         {
-            using (MySqlConnection conn = new MySqlConnection(getConString()))
+
+
+
+
+            using (MySqlConnection sqlConnection = new MySqlConnection(getConString()))
             {
-                conn.Open();
+                sqlConnection.Open();
 
-                // Step 1: Check if the user has already upvoted the post
-                string checkUpvoteQuery = "SELECT COUNT(*) FROM post_votes WHERE userId = @userId AND postId = @postId AND vote_type = 'upvote'";
-                using (MySqlCommand cmd = new MySqlCommand(checkUpvoteQuery, conn))
+                // Ensure correct character encoding
+                using (MySqlCommand setNamesCmd = new MySqlCommand("SET NAMES utf8mb4;", sqlConnection))
                 {
-                    cmd.Parameters.AddWithValue("@userId", userId);
-                    cmd.Parameters.AddWithValue("@postId", postId);
-                    int count = Convert.ToInt32(cmd.ExecuteScalar());
+                    setNamesCmd.ExecuteNonQuery();
+                }
 
-                    if (count > 0)
+                // Check if the user has already voted on this post
+                string checkVote = "SELECT vote_type FROM votes WHERE userid = @userId AND post_id = @postId";
+                using (MySqlCommand sqlSelect = new MySqlCommand(checkVote, sqlConnection))
+                {
+                    sqlSelect.Parameters.AddWithValue("@userId", userId);
+                    sqlSelect.Parameters.AddWithValue("@postId", Convert.ToInt32(postId));
+                    sqlSelect.Parameters.AddWithValue("@voteType", voteType);
+
+
+                    object existingVoteObj = sqlSelect.ExecuteScalar();
+
+                    if (existingVoteObj != null)
                     {
-                        // If the user has already upvoted the post, return a response indicating failure
-                        return new { success = false, message = "You have already upvoted this post." };
+                        int existingVote = Convert.ToInt32(existingVoteObj);
+                        if (existingVote != voteType)
+                        {
+                            // Update existing vote
+                            string updateQuery = "UPDATE votes SET vote_type = @voteType WHERE userid = @userId AND post_id = @postId";
+                            using (MySqlCommand updateCmd = new MySqlCommand(updateQuery, sqlConnection))
+                            {
+                                updateCmd.Parameters.AddWithValue("@voteType", voteType);
+                                updateCmd.Parameters.AddWithValue("@userId", userId);
+                                updateCmd.Parameters.AddWithValue("@postId", Convert.ToInt32(postId));
+                                updateCmd.ExecuteNonQuery();
+                            }
+                        }
                     }
+                    else
+                    {
+                        // Insert new vote
+                        string insertVote = "INSERT INTO votes (userid, post_id, vote_type) VALUES (@userId, @postId, @voteType)";
+                        using (MySqlCommand sqlInsert = new MySqlCommand(insertVote, sqlConnection))
+                        {
+                            sqlInsert.Parameters.AddWithValue("@userId", userId);
+                            sqlInsert.Parameters.AddWithValue("@postId", Convert.ToInt32(postId));
+                            sqlInsert.Parameters.AddWithValue("@voteType", voteType);
+                            sqlInsert.ExecuteNonQuery();
+                        }
+                    }
+
+                    //// Update the post's vote counts
+                    //string updatePostQuery = @"UPDATE posts
+                    //                        SET upvotecount = (SELECT COUNT(*) FROM votes WHERE post_id = @postId AND vote_type = 1),
+                    //                        downvotecount = (SELECT COUNT(*) FROM votes WHERE post_id = @postId AND vote_type = -1)
+                    //                        WHERE post_id = @postId";
+                    //using (MySqlCommand updatePostCmd = new MySqlCommand(updatePostQuery, sqlConnection))
+                    //{
+                    //    updatePostCmd.Parameters.AddWithValue("@postId", postId);
+                    //    updatePostCmd.ExecuteNonQuery();
+                    //}
+
+
                 }
 
-                // Step 2: Insert a new upvote into the post_votes table
-                string insertUpvoteQuery = "INSERT INTO post_votes (userId, postId, vote_type) VALUES (@userId, @postId, 'upvote')";
-                using (MySqlCommand cmd = new MySqlCommand(insertUpvoteQuery, conn))
-                {
-                    cmd.Parameters.AddWithValue("@userId", userId);
-                    cmd.Parameters.AddWithValue("@postId", postId);
-                    cmd.ExecuteNonQuery();
-                }
-
-                // Step 3: Update the upvote count in the posts table
-                string updateUpvoteCountQuery = "UPDATE posts SET upvote = upvote + 1 WHERE post_id = @postId";
-                using (MySqlCommand cmd = new MySqlCommand(updateUpvoteCountQuery, conn))
-                {
-                    cmd.Parameters.AddWithValue("@postId", postId);
-                    cmd.ExecuteNonQuery();
-                }
-
-                return new { success = true };
             }
+
         }
 
-        [WebMethod(EnableSession = true)]
-        public object DownvotePost(string userId, int postId)
-        {
-            using (MySqlConnection conn = new MySqlConnection(getConString()))
-            {
-                conn.Open();
-
-                // Step 1: Check if the user has already downvoted the post
-                string checkDownvoteQuery = "SELECT COUNT(*) FROM post_votes WHERE userId = @userId AND postId = @postId AND vote_type = 'downvote'";
-                using (MySqlCommand cmd = new MySqlCommand(checkDownvoteQuery, conn))
-                {
-                    cmd.Parameters.AddWithValue("@userId", userId);
-                    cmd.Parameters.AddWithValue("@postId", postId);
-                    int count = Convert.ToInt32(cmd.ExecuteScalar());
-
-                    if (count > 0)
-                    {
-                        // If the user has already downvoted the post, return a response indicating failure
-                        return new { success = false, message = "You have already downvoted this post." };
-                    }
-                }
-
-                // Step 2: Insert a new downvote into the post_votes table
-                string insertDownvoteQuery = "INSERT INTO post_votes (userId, postId, vote_type) VALUES (@userId, @postId, 'downvote')";
-                using (MySqlCommand cmd = new MySqlCommand(insertDownvoteQuery, conn))
-                {
-                    cmd.Parameters.AddWithValue("@userId", userId);
-                    cmd.Parameters.AddWithValue("@postId", postId);
-                    cmd.ExecuteNonQuery();
-                }
-
-                // Step 3: Update the downvote count in the posts table
-                string updateDownvoteCountQuery = "UPDATE posts SET downvote = downvote + 1 WHERE post_id = @postId";
-                using (MySqlCommand cmd = new MySqlCommand(updateDownvoteCountQuery, conn))
-                {
-                    cmd.Parameters.AddWithValue("@postId", postId);
-                    cmd.ExecuteNonQuery();
-                }
-
-                return new { success = true };
-            }
-        }
     }
+
 }
