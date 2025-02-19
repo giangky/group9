@@ -73,10 +73,10 @@ namespace ProjectTemplate
         }
         // LogOn method to allow users to access system
         [WebMethod(EnableSession = true)]
-        public bool LogOn(string userid, string pass)
+        public object LogOn(string userid, string pass)
         {
-            //we return this flag to tell them if they logged in or not
-            bool success = false;
+            // Create an object to hold the response
+            var response = new { success = false, isAdmin = false };
 
             MySqlConnection sqlConnection = new MySqlConnection(getConString());
 
@@ -103,11 +103,12 @@ namespace ProjectTemplate
                 Session["id"] = sqlDt.Rows[0]["id"];
                 Session["uid"] = userid;
                 Session["admin"] = sqlDt.Rows[0]["admin"];
-                success = true;
+
+                bool isAdmin = (sqlDt.Rows[0]["admin"].ToString() == "1");
+                response = new { success = true, isAdmin = isAdmin };
 
             }
-            // Return an object containing both success and isAdmin
-            return success;
+            return response; // Return the object containing both success and admin status
         }
         //Insert query for creating a post
         [WebMethod(EnableSession = true)]

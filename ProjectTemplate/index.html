@@ -28,7 +28,7 @@
 				}
 			});
         }
-        var contentPanel = ["logonPanel", "feedbackPanel", "editPostPanel"];
+        var contentPanel = ["logonPanel", "feedbackPanel", "editPostPanel", "managerDashboardPanel"];
         // Funtion to change active panel being displayed
         function showPanel(panelName) {
             clearData();
@@ -65,11 +65,19 @@
                         GetPosts();
 
                         // Store the user ID in localStorage
-                        localStorage.setItem('userId', userId);
+                        sessionStorage.setItem('userId', userId);
+                        sessionStorage.setItem("admin", msg.d.isAdmin);
 
                         // Store the user ID and display it
                         $("#loggedInUser").text("User: " + userId);
                         $("#userInfo").css("display", "block");
+
+                        if (msg.d.isAdmin){
+                            $("#managerDashboardLink").css("display", "inline");
+                        }
+                        else{
+                            $("#managerDashboardLink").css("display", "none");
+                        }
 
                     }
                     else {
@@ -123,8 +131,8 @@
                 }
             });
         }
-       
 
+        
         // Function to show the post creation form
         function showPostForm() {
             document.getElementById('postFormContainer').style.display = 'block';
@@ -281,9 +289,7 @@
             });
         }
 
-
         function getUserId() {
-    
             return localStorage.getItem('userId'); // Example: get from localStorage
         } 
 
@@ -294,6 +300,11 @@
             var charCount = document.getElementById("charCount");
             var remaining = 500 - textArea.value.length;
             charCount.textContent = remaining + " characters remaining";
+        }
+
+        // Function to navigate to the Manager Dashboard
+        function goToManagerDashboard() {
+            showPanel('managerDashboardPanel');
         }
 
         // Ensure that posts are loaded when the page is ready
@@ -445,9 +456,10 @@
              margin-right: 5px;
          }
 
-         #logonPanel, #feedbackPanel {
-             display: none;
-         }
+        #logonPanel, #feedbackPanel, #managerDashboardPanel {
+            display: none;
+        }
+
         #feedbackPanel {
             width: 100%;
             max-height: 700px;
@@ -456,7 +468,6 @@
         #logonPanel {
             max-width: 500px;
         }
-
 
         .button-container {
             width: 100%;
@@ -468,6 +479,7 @@
             display: flex;
             justify-content: right;
         }
+
         #userInfo {
             position: absolute;
             top: 10px;
@@ -476,12 +488,15 @@
             color: white;
             padding: 10px 15px;
             border-radius: 8px;
-            display: none;
-            align-items: center;
-            font-weight: bold;
+            display: flex;
+            flex-direction: row;
+            flex-direction: center;
+            gap: 20px;
         }
+
         #loggedInUser {
             font-weight: bold;
+           
             margin-right: 15px;
         }
         #logOutButton {
@@ -492,6 +507,7 @@
             border-radius: 5px;
             cursor: pointer;
         }
+
         #charCount {
             text-align: right;
             font-size: 14px;
@@ -553,6 +569,24 @@
             background-color: #fff;
         }
 
+        #managerDashboardLink {
+            display: none;
+            font-size: 1.2rem;
+            margin-right: 20px;
+        }
+
+        #managerDashboardLink a {
+            color: white;
+            font-size: 1rem;
+            font-weight: bold;
+            text-decoration: none;
+        }
+
+        #managerDashboardLink a:hover {
+            text-decoration: underline;
+        }
+
+
 		
 	</style>
 	<!--END OF YOUR OWN CSS-->
@@ -581,8 +615,14 @@
 
         <!-- User Info Display -->
         <div id="userInfo">
+            <!-- Manager Dashboard Link (only visible for admin users) -->
+            <div id="managerDashboardLink">
+                <a href="javascript:goToManagerDashboard();">Manager Dashboard</a>
+            </div>
+
             <span id="loggedInUser"></span>
             <button id="logOutButton" onclick="logOut()">Log Out</button>
+
         </div>
 
         <!--Weekly Question-->
@@ -618,9 +658,15 @@
         <!--Container for posts-->
         <div id="postsContainer"></div>
 
+        <!-- Manager Dashboard Panel (initially hidden) -->
+        <div id="managerDashboardPanel" class="container">
+            <h1>Manager Dashboard</h1>
+            <p>Welcome to the Manager Dashboard!</p>
+            <!-- Add manager-specific content here -->
+        </div>
+
     </div>
 
-    
 
     <!--<button onclick="javascript: TestButtonHandler();">Click here to test connection!</button>-->
 </body>
