@@ -92,6 +92,7 @@
                 }
             });
         }
+
         function clearData() {
             clearLogon();
             clearUser();
@@ -102,6 +103,7 @@
             $('#logonId').val("");
             $('#logonPassword').val("");
         }
+
         //hide user info
         function clearUser() {
             // Hide user info
@@ -289,6 +291,53 @@
             });
         }
 
+        var feedbackArray;
+        function managerFeedback() {
+
+            var webMethod = "ProjectServices.asmx/GetFeedback";
+            var parameters = "{}";
+
+            $.ajax({
+                type: "POST",
+                url: webMethod,
+                data: parameters,
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (msg) {
+                    if (msg.d.length > 0) {
+                        feedbackArray = msg.d;
+                        $("#feedbackContainer").empty();
+
+                        for (var i = 0; i < feedbackArray.length; i++) {
+                            
+                            var feedback = `
+                                <div class='postRow' id='post${feedbackArray[i].postId}'>
+                                    <h3>${feedbackArray[i].title}</h3>
+                                    <p class='postUser'>Posted by: ${feedbackArray[i].userId}</p>
+                                    <p>${feedbackArray[i].content}</p>
+                                    <div class='post-footer' id="feedback">
+                                        <div class='post-upvote-count'>
+                                            Total Upvotes: <span id='upvoteCount-${feedbackArray[i].postId}'>${feedbackArray[i].upvoteCount}</span>
+                                        </div>
+                                    </div>
+                                    <hr>
+                                </div>
+                            `;
+
+                            // Append each post to the container
+                            $("#feedbackContainer").append(feedback);
+                            
+                        }
+                    } else {
+                        $("#feedbackContainer").append("<p>No posts available at the moment.</p>");
+                    }
+                },
+                error: function (e) {
+                    alert("Error fetching posts");
+                }
+            });
+        }
+
         function getUserId() {
             return localStorage.getItem('userId'); // Example: get from localStorage
         } 
@@ -304,9 +353,22 @@
 
         // Function to navigate to the Manager Dashboard
         function goToManagerDashboard() {
+            var userId = sessionStorage.getItem('userId');
+            console.log("Retrieved userId from sessionStorage: " + userId); // Debugging log
+            if (userId) {
+                $("#managerDashboardPanel #loggedInUser").text("User: " + userId);
+
+            } else {
+                console.log("No userId found in sessionStorage");
+            }
             showPanel('managerDashboardPanel');
+            managerFeedback();
         }
 
+        // Function to navigate to the Manager Dashboard
+        function goToFeedback() {
+            showPanel('feedbackPanel');
+        }
         // Ensure that posts are loaded when the page is ready
         $(document).ready(function () {
             showPanel("logonPanel");
@@ -460,11 +522,12 @@
             display: none;
         }
 
-        #feedbackPanel {
+        #feedbackPanel, #managerDashboardPanel {
             width: 100%;
             max-height: 700px;
             overflow-y: auto;
         }
+
         #logonPanel {
             max-width: 500px;
         }
@@ -480,7 +543,7 @@
             justify-content: right;
         }
 
-        #userInfo {
+        #userInfo, #managerUserInfo {
             position: absolute;
             top: 10px;
             right: 20px;
@@ -490,14 +553,14 @@
             border-radius: 8px;
             display: flex;
             flex-direction: row;
-            flex-direction: center;
+            align-items: center;
             gap: 20px;
         }
 
         #loggedInUser {
             font-weight: bold;
-           
             margin-right: 15px;
+
         }
         #logOutButton {
             background-color: red;
@@ -569,23 +632,37 @@
             background-color: #fff;
         }
 
-        #managerDashboardLink {
+        #managerDashboardLink, #feedbackLink {
             display: none;
             font-size: 1.2rem;
             margin-right: 20px;
         }
 
-        #managerDashboardLink a {
+        #managerDashboardLink a, #feedbackLink a {
             color: white;
             font-size: 1rem;
             font-weight: bold;
             text-decoration: none;
         }
 
-        #managerDashboardLink a:hover {
+        #managerDashboardLink a:hover, #feedbackLink a:hover {
             text-decoration: underline;
         }
 
+        #feedback {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            position: relative;
+            font-size: 14px;
+            color: #555;
+        }
+
+        .post-upvote-count {
+            margin-right: 10px;
+            font-weight: bold;
+            color: #333;
+        }
 
 		
 	</style>
@@ -612,7 +689,7 @@
 
     <!--Post Suggestion Form-->
     <div id="feedbackPanel" class="container">
-
+        
         <!-- User Info Display -->
         <div id="userInfo">
             <!-- Manager Dashboard Link (only visible for admin users) -->
@@ -658,13 +735,25 @@
         <!--Container for posts-->
         <div id="postsContainer"></div>
 
-        <!-- Manager Dashboard Panel (initially hidden) -->
-        <div id="managerDashboardPanel" class="container">
-            <h1>Manager Dashboard</h1>
-            <p>Welcome to the Manager Dashboard!</p>
-            <!-- Add manager-specific content here -->
-        </div>
+    </div>
 
+    <!-- Manager Dashboard Panel (initially hidden) -->
+    <div id="managerDashboardPanel" class="container">
+        <h1>Manager Dashboard</h1>
+        
+        <!-- User Info Display -->
+        <div id="managerUserInfo">
+            <!-- Feedback Dashboard Link return -->
+            <div id="feedbackLink">
+                <a href="javascript:goToFeedback();">Feedback</a>
+            </div>
+
+            <span id="loggedInUser"></span>
+            <button id="logOutButton" onclick="logOut()">Log Out</button>
+
+        </div>
+        <!-- Add manager-specific content here -->
+        <div id="feedbackContainer"></div>
     </div>
 
 

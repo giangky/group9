@@ -192,6 +192,59 @@ namespace ProjectTemplate
 
         }
 
+        //Retrieve posts for manager dashboard
+        [WebMethod(EnableSession = true)]
+        public Post[] GetFeedback()
+        {
+
+            DataTable sqlDt = new DataTable("posts");
+
+            //Get connection string 
+            MySqlConnection sqlConnection = new MySqlConnection(getConString());
+
+            //SQL query to select variables from table
+            string sqlSelect = @"
+                               SELECT p.post_id, p.title,p.content,p.userid,a.admin,p.created_at,
+                               COALESCE(SUM(CASE WHEN v.vote_type = 1 THEN 1 ELSE 0 END), 0) AS upvoteCount
+                               FROM posts p
+                               LEFT JOIN accounts a ON p.userid = a.userid
+                               LEFT JOIN votes v ON p.post_id = v.post_id
+                               GROUP BY p.post_id, p.title, p.content, p.userid, a.admin, p.created_at
+                               ORDER BY upvoteCount DESC
+                               LIMIT 5";
+
+            MySqlCommand sqlCommand = new MySqlCommand(sqlSelect, sqlConnection);
+
+            //Data adapter to fill data table
+            MySqlDataAdapter sqlDa = new MySqlDataAdapter(sqlCommand);
+            sqlDa.Fill(sqlDt);
+
+            //List to hold posts
+            List<Post> posts = new List<Post>();
+
+
+            for (int i = 0; i < sqlDt.Rows.Count; i++)
+            {
+                bool isPostFromAdmin = sqlDt.Rows[i]["admin"] != DBNull.Value && Convert.ToBoolean(sqlDt.Rows[i]["admin"]);
+                string displayedUserId = isPostFromAdmin ? sqlDt.Rows[i]["userid"].ToString() : "Anonymous"; // Show only if admin
+
+                posts.Add(new Post
+                {
+                    title = sqlDt.Rows[i]["title"].ToString(),
+                    userId = displayedUserId, // Display only if admin, otherwise "Anonymous"
+                    content = sqlDt.Rows[i]["content"].ToString(),
+                    postId = sqlDt.Rows[i]["post_id"].ToString(),
+                    upvoteCount = Convert.ToInt32(sqlDt.Rows[i]["upvoteCount"]),
+                    
+                });
+
+            }
+            //Return array 
+            return posts.ToArray();
+
+        }
+
+
         //Insert query for creating a comment (Anonymous or Not)
         [WebMethod(EnableSession = true)]
         public void CreateComment(int postId, string content)
