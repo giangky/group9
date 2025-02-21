@@ -191,6 +191,7 @@
                 success: function (msg) {
                     if (msg.d.length > 0) {
                         postsArray = msg.d;
+                        postsArray.sort((a, b) => b.upvoteCount - a.upvoteCount);
                         $("#postsContainer").empty();
 
                         for (var i = 0; i < postsArray.length; i++) {
