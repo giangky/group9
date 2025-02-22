@@ -493,6 +493,9 @@
             }
             showPanel('managerDashboardPanel');
             managerFeedback();
+
+            $("#managerDashboardLink").css("display", "none"); 
+            $("#feedbackLink").css("display", "inline-block");
         }
 
         // Function to navigate to the Manager Dashboard
@@ -501,8 +504,8 @@
             var isAdmin = sessionStorage.getItem('admin')
             showPanel('feedbackPanel');
 
-            $("#loggedInUser").text("User: " + userId);
-            $("#userInfo").css("display", "block");
+             $("#loggedInUser").text("User: " + sessionStorage.getItem('userId'));
+             $("#userInfo").css("display", "block");
 
             if (isAdmin) {
                 $("#managerDashboardLink").css("display", "inline");
@@ -688,6 +691,7 @@
             flex-direction: row;
             align-items: center;
             gap: 20px;
+            
         }
 
         #loggedInUser {
