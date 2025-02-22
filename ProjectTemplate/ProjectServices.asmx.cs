@@ -14,6 +14,7 @@ using System.Xml.Linq;
 using System.Runtime.Remoting.Contexts;
 using System.Data.SqlClient;
 using System.Net.Mail;
+using MySql.Data.MySqlClient.Authentication;
 
 namespace ProjectTemplate
 {
@@ -309,7 +310,8 @@ namespace ProjectTemplate
             return comments.ToArray();
 
         }
-        //weekly question web method
+
+        //gets and automatically updates feedback question weekly
         [WebMethod(EnableSession = true)]
         public string GetQuestion()
         {
@@ -346,18 +348,60 @@ namespace ProjectTemplate
             return true;
         }
 
-        //NEW delete-edit comment BRANCH
+        //allows original poster to edit their own post
         [WebMethod(EnableSession = true)]
-        public String EditComment(string postId, string title, string content)
+        public String EditComment(string postId, string content)
+        {
+            if (Session["uid"] == null)
+            {
+                return "Unauthorized bc null";
+            }
+
+            string userId = Session["uid"].ToString();
+
+            string checkQuery = "SELECT userid FROM posts WHERE post_id = @postId";
+
+            MySqlConnection sqlConnection = new MySqlConnection(getConString());
+            MySqlCommand checkCommand = new MySqlCommand(checkQuery, sqlConnection);
+
+            checkCommand.Parameters.AddWithValue("@postId", HttpUtility.UrlDecode(postId));
+            sqlConnection.Open();
+            object result = checkCommand.ExecuteScalar();
+            if (result == null || result == DBNull.Value)
+            {
+                return "Comment not found.";
+            }
+
+            string postUid = result.ToString();
+
+            if (postUid != userId)
+            {
+                return "Unauthorized.";
+            }
+
+            string updateQuery = "UPDATE posts SET content=@contentValue WHERE post_id=@idValue";
+            MySqlCommand updateCommand = new MySqlCommand(updateQuery, sqlConnection);
+
+            updateCommand.Parameters.AddWithValue("@idValue", HttpUtility.UrlDecode(postId));
+            updateCommand.Parameters.AddWithValue("@contentValue", HttpUtility.UrlDecode(content));
+
+            int rowsAffected = updateCommand.ExecuteNonQuery();
+            sqlConnection.Close();
+            return rowsAffected > 0 ? "Success" : "Failed";
+
+        }
+
+        //allows admin or original poster to delete a comment
+        [WebMethod(EnableSession = true)]
+        public string DeleteComment(string postId)
         {
             if (Session["admin"] == null || Session["uid"] == null)
             {
                 return "Unauthorized bc null";
             }
 
-            string userId = Session["uid"].ToString();
+            string sessionId = Session["uid"].ToString();
             Boolean isAdmin = Convert.ToBoolean(Session["admin"]);
-
 
             string checkQuery = "SELECT userid FROM posts WHERE post_id = @postId";
 
@@ -373,53 +417,65 @@ namespace ProjectTemplate
                 return "Comment not found.";
             }
 
-            string uid = result.ToString();
+            string postUid = result.ToString();
 
-
-            if (uid != userId && !isAdmin)
+            if (postUid != sessionId && !isAdmin)
             {
-                return "Unauthorized. uid: " + uid + "userId: " + userId;
+                return "Unauthorized. Posts may only be deleted by the original poster or admin.";
             }
 
-            string updateQuery = "UPDATE posts SET title=@titleValue, content=@contentValue WHERE post_id=@idValue";
-            MySqlCommand updateCommand = new MySqlCommand(updateQuery, sqlConnection);
+            string deleteQuery = "DELETE FROM posts WHERE post_id=@idValue";
+            MySqlCommand deleteCommand = new MySqlCommand(deleteQuery, sqlConnection);
 
-            updateCommand.Parameters.AddWithValue("@idValue", HttpUtility.UrlDecode(postId));
-            updateCommand.Parameters.AddWithValue("@titleValue", HttpUtility.UrlDecode(title));
-            updateCommand.Parameters.AddWithValue("@contentValue", HttpUtility.UrlDecode(content));
+            deleteCommand.Parameters.AddWithValue("@idValue", HttpUtility.UrlDecode(postId));
 
-
-
-            int rowsAffected = updateCommand.ExecuteNonQuery();
-            sqlConnection.Close();
-            return rowsAffected > 0 ? "Success" : "Failed";
-
-        }
-
-        [WebMethod(EnableSession = true)]
-        public void DeleteComment(string postId)
-        {
-            if (Convert.ToInt32(Session["admin"]) == 1)
+            int rowsAffected = deleteCommand.ExecuteNonQuery();
+            if (rowsAffected > 0)
             {
-                string sqlSelect = "delete from posts where post_id=@idValue";
-
-                MySqlConnection sqlConnection = new MySqlConnection(getConString());
-                MySqlCommand sqlCommand = new MySqlCommand(sqlSelect, sqlConnection);
-
-                sqlCommand.Parameters.AddWithValue("@idValue", HttpUtility.UrlDecode(postId));
-
-                sqlConnection.Open();
-                try
+                //sends an email notification if someone other than original poster deletes post
+                /*if (postUid != sessionId)
                 {
-                    sqlCommand.ExecuteNonQuery();
-                }
-                catch (Exception e)
-                {
-                }
+                    string sqlSelect = "SELECT email FROM users WHERE id = '" + postUid + "' AND receive_notifications = 1";
+
+                    MySqlCommand sqlCommand = new MySqlCommand(sqlSelect, sqlConnection);
+
+                    object email = sqlCommand.ExecuteScalar();
+                    if (email != null || email != DBNull.Value)
+                    {
+                        DeletedCommentEmail(email.ToString());
+                    }
+                }*/ //commented out because unsure how to test email function
                 sqlConnection.Close();
+                return "Success";
+            }
+            else
+            {
+                sqlConnection.Close();
+                return "Failed to delete comment.";
             }
         }
+        
+        private void DeletedCommentEmail(string email)
+        {
+            try
+            {
+                MailMessage mail = new MailMessage();
+                SmtpClient smtpServer = new SmtpClient("smtp.yourserver.com");
+                mail.From = new MailAddress("no-reply@yourcompany.com");
+                mail.To.Add(email);
+                mail.Subject = "Your Post Has Been Removed.";
+                mail.Body = "Your post has been removed in accordance with our guidelines.";
+                smtpServer.Port = 587;
+                smtpServer.Credentials = new System.Net.NetworkCredential("your_email@yourcompany.com", "yourpassword");
+                smtpServer.EnableSsl = true;
+                smtpServer.Send(mail);
+            }
+            catch (Exception ex)
+            {
+                // Log error
+            }
 
+        }
 
         [WebMethod(EnableSession = true)]
         public void SetNotificationPreference(int userId, bool enableNotifications)
@@ -490,8 +546,6 @@ namespace ProjectTemplate
         [WebMethod(EnableSession = true)]
         public void PostVotes(string userId, string postId, int voteType)
         {
-
-
 
 
             using (MySqlConnection sqlConnection = new MySqlConnection(getConString()))

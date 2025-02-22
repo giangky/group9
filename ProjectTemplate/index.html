@@ -199,7 +199,7 @@
                                 <div class='postRow' id='post${postsArray[i].postId}'>
                                     <h3>${postsArray[i].title}</h3>
                                     <p class='postUser'>Posted by: ${postsArray[i].userId}</p>
-                                    <p>${postsArray[i].content}</p>
+                                    <p class='post-text'>${postsArray[i].content}</p>
                                     <div class='post-footer'>
                                         
                                         <div class='vote-buttons'>
@@ -247,6 +247,34 @@
                 error: function (e) {
                     document.getElementById("resultText").innerText = "Error fetching data."
                 }
+            });
+        }
+
+
+        // Function to delete a post with confirmation dialogue
+        function DeletePost(postId) {
+            
+            let confirmDelete = confirm("Are you sure you want to delete this comment?");
+            if (!confirmDelete) return;
+
+            $.ajax({
+                type: "POST",
+                url: "ProjectServices.asmx/DeleteComment",
+                data: JSON.stringify({ postId: postId }),
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (msg) {
+                    if (msg.d === "Success") {
+                        alert("Comment deleted successfully!");
+                    GetPosts(); // Reload the posts
+                } else {
+                    alert(msg.d);
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error("Error: " + error);
+                alert("Failed to delete comment.");
+            }
             });
         }
 
@@ -507,17 +535,6 @@
             padding-bottom: 6px;
          }
 
-         .postOptions {
-             font-size: 15px;
-             position: absolute;
-             right: 32rem;
-             background-color: #ffffff00;
-             color: black;
-             padding: 2px;
-             border: none;
-             margin-right: 5px;
-         }
-
         #logonPanel, #feedbackPanel, #managerDashboardPanel {
             display: none;
         }
@@ -611,16 +628,19 @@
             position: absolute;
             top: 10px;
             right: 10px;
-            background-color: transparent;
-            color: black;
             border: none;
-            font-size: 14px;
-            padding: 5px;
         }
 
-        .postOptions button {
-            font-size: 12px;
-            margin-left: 5px;
+            .postOptions button {
+                font-size: 13px;
+                background-color: transparent;
+                color: dimgray;
+                padding: 8px;
+                line-height: 0px;
+            }
+
+        .postOptions button:hover {
+            text-decoration: underline;
         }
 
         .postRow {
