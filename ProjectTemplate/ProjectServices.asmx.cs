@@ -598,16 +598,7 @@ namespace ProjectTemplate
                         }
                     }
 
-                    //// Update the post's vote counts
-                    //string updatePostQuery = @"UPDATE posts
-                    //                        SET upvotecount = (SELECT COUNT(*) FROM votes WHERE post_id = @postId AND vote_type = 1),
-                    //                        downvotecount = (SELECT COUNT(*) FROM votes WHERE post_id = @postId AND vote_type = -1)
-                    //                        WHERE post_id = @postId";
-                    //using (MySqlCommand updatePostCmd = new MySqlCommand(updatePostQuery, sqlConnection))
-                    //{
-                    //    updatePostCmd.Parameters.AddWithValue("@postId", postId);
-                    //    updatePostCmd.ExecuteNonQuery();
-                    //}
+                    
 
 
                 }
@@ -615,6 +606,88 @@ namespace ProjectTemplate
             }
 
         }
+       
+
+        [WebMethod(EnableSession = true)]
+        public string GetStreak(string userId)
+        {
+            try
+            {
+                 
+
+                using (MySqlConnection con = new MySqlConnection(getConString()))
+                {
+                    con.Open();
+                    string query = "SELECT streakCount, lastPostDate FROM streak WHERE userId = @userId";
+                    MySqlCommand cmd = new MySqlCommand(query, con);
+                    cmd.Parameters.AddWithValue("@userId", userId);
+
+                    MySqlDataAdapter adapter = new MySqlDataAdapter(cmd);
+                    DataTable table = new DataTable();
+                    adapter.Fill(table);
+
+                    if (table.Rows.Count > 0)
+                    {
+                        int streakCount = Convert.ToInt32(table.Rows[0]["streakCount"]);
+                        DateTime lastPostDate = Convert.ToDateTime(table.Rows[0]["lastPostDate"]);
+                        return $"{streakCount},{lastPostDate:yyyy-MM-dd}"; // Return streak count and last post date
+                    }
+                    else
+                    {
+                        return "0,No previous posts"; // No streak data found for user
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                return "Error: " + e.Message;
+            }
+        }
+
+        // WebMethod to update the streak
+        [WebMethod(EnableSession = true)]
+        public string UpdateStreak(int streakCount, string lastPostDate, string userId)
+        {
+            try
+            {
+                
+                using (MySqlConnection con = new MySqlConnection(getConString()))
+                {
+                    con.Open();
+                    string query;
+
+                    // Check if the user already has a streak record
+                    string checkQuery = "SELECT COUNT(*) FROM streak WHERE userId = @userId";
+                    MySqlCommand checkCmd = new MySqlCommand(checkQuery, con);
+                    checkCmd.Parameters.AddWithValue("@userId", userId);
+                    int recordExists = Convert.ToInt32(checkCmd.ExecuteScalar());
+
+                    if (recordExists > 0)
+                    {
+                        query = "UPDATE streak SET streakCount = @streakCount, lastPostDate = @lastPostDate WHERE userId = @userId";
+                    }
+                    else
+                    {
+                     
+                        query = "INSERT INTO streak (userId, streakCount, lastPostDate) VALUES (@userId, @streakCount, @lastPostDate)";
+                    }
+
+                    MySqlCommand cmd = new MySqlCommand(query, con);
+                    cmd.Parameters.AddWithValue("@userId", userId);
+                    cmd.Parameters.AddWithValue("@streakCount", streakCount);
+                    cmd.Parameters.AddWithValue("@lastPostDate", DateTime.Parse(lastPostDate));
+
+                    cmd.ExecuteNonQuery();
+                    return "Streak updated successfully!";
+                }
+            }
+            catch (Exception e)
+            {
+                return "Error: " + e.Message;
+            }
+        }
+
+
 
     }
 

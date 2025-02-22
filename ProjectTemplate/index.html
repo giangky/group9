@@ -79,6 +79,12 @@
                             $("#managerDashboardLink").css("display", "none");
                         }
 
+                        // Display user streak on log in
+                        if (sessionStorage.getItem('userId')) {
+                            getStreak();
+                        }
+
+
                     }
                     else {
                         //server replied false, so let the user know
@@ -164,7 +170,9 @@
                 dataType: "json",
                 success: function (msg) {
                     alert("Post Submitted");
-                    GetPosts();
+                    GetPosts(); // Refresh posts after submission
+                    updateStreak(); // Update the streak after posting
+
                 },
                 error: function (e) {
                     alert("Error submitting post.");
@@ -367,6 +375,99 @@
             });
         }
 
+        // Function to check the user's streak
+        function getStreak() {
+            var userId = sessionStorage.getItem('userId'); 
+
+            var webMethod = "ProjectServices.asmx/GetStreak";
+            var parameters = "{\"userId\":\"" + encodeURI(userId) + "\"}"; // Send the user ID to the server
+
+            $.ajax({
+                type: "POST",
+                url: webMethod,
+                data: parameters,
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (msg) {
+                    var streakData = msg.d.split(','); // Expected response: "streakCount,lastPostDate"
+                    var streakCount = streakData[0];
+                    var lastPostDate = streakData[1];
+
+                    // Display the streak count to the user
+                    $("#streakDisplay").text("Your streak: " + streakCount + " days (Last post: " + lastPostDate + ")");
+                },
+                error: function (e) {
+                    alert("Error fetching streak data.");
+                }
+            });
+        }
+
+        // Function to update the user's streak when they submit a post
+        function updateStreak() {
+            var userId = sessionStorage.getItem('userId'); 
+            var streakCount = 0; // Default value for streak count (will be updated with server response)
+            var lastPostDate = new Date().toISOString().split('T')[0]; // Get today's date
+
+            var webMethod = "ProjectServices.asmx/GetStreak";
+            var parameters = "{\"userId\":\"" + encodeURI(userId) + "\"}"; 
+
+            $.ajax({
+                type: "POST",
+                url: webMethod,
+                data: parameters,
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (msg) {
+                    if (msg.d && msg.d !== "0,No previous posts") {
+                        var streakData = msg.d.split(','); // Expected response: "streakCount,lastPostDate"
+                        streakCount = parseInt(streakData[0]);
+
+                        // Check if the streak should be updated based on the last post date
+                        var lastPostDateFromServer = new Date(streakData[1]);
+
+                        // Update streak count if the user posts on consecutive days
+                        var today = new Date();
+                        var diffInTime = today.getTime() - lastPostDateFromServer.getTime();
+                        var diffInDays = diffInTime / (1000 * 3600 * 24);
+
+                        if (diffInDays === 1) {
+                            streakCount++; // Increase streak if the user posted yesterday
+                        } else if (diffInDays > 1) {
+                            streakCount = 1; // Reset streak if the user hasn't posted for more than one day
+                        }
+                    }
+                    else {
+                        // If no streak data (i.e., the user is posting for the first time)
+                        streakCount = 1; // Set streak to 1 on the first post
+                    }
+
+                    // Now, update the streak in the backend
+                    var updateWebMethod = "ProjectServices.asmx/UpdateStreak";
+                    var updateParameters = "{\"userId\":\"" + encodeURI(userId) + "\",\"streakCount\":\"" + streakCount + "\",\"lastPostDate\":\"" + lastPostDate + "\"}";
+
+                    $.ajax({
+                        type: "POST",
+                        url: updateWebMethod,
+                        data: updateParameters,
+                        contentType: "application/json; charset=utf-8",
+                        dataType: "json",
+                        success: function (msg) {
+                            alert("Streak updated successfully!");
+                            getStreak(); // Update streak on the front-end after posting
+                        },
+                        error: function (e) {
+                            alert("Error updating streak data.");
+                        }
+                    });
+                },
+                error: function (e) {
+                    alert("Error fetching streak data.");
+                }
+            });
+        }
+
+
+
         function getUserId() {
             return localStorage.getItem('userId'); // Example: get from localStorage
         } 
@@ -396,11 +497,25 @@
 
         // Function to navigate to the Manager Dashboard
         function goToFeedback() {
+
+            var isAdmin = sessionStorage.getItem('admin')
             showPanel('feedbackPanel');
+
+            $("#loggedInUser").text("User: " + userId);
+            $("#userInfo").css("display", "block");
+
+            if (isAdmin) {
+                $("#managerDashboardLink").css("display", "inline");
+            }
+            else {
+                $("#managerDashboardLink").css("display", "none");
+            }
+            GetPosts();
         }
         // Ensure that posts are loaded when the page is ready
         $(document).ready(function () {
             showPanel("logonPanel");
+
         });
         
 	</script>
@@ -720,6 +835,7 @@
 
             <span id="loggedInUser"></span>
             <button id="logOutButton" onclick="logOut()">Log Out</button>
+            <div id="streakDisplay"></div>
 
         </div>
 
