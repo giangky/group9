@@ -380,7 +380,7 @@ namespace ProjectTemplate
             try
             {
                 MailMessage mail = new MailMessage();
-                SmtpClient smtpServer = new SmtpClient("smtp.yourserver.com");
+                SmtpClient smtpServer = new SmtpClient("smtp.gmail.com");
                 mail.From = new MailAddress("no-reply@yourcompany.com");
                 mail.To.Add(email);
                 mail.Subject = "Weekly Feedback Reminder";
