@@ -782,5 +782,118 @@ namespace ProjectTemplate
             }
         }
 
+        [WebMethod(EnableSession = true)]
+        public string GetLastPostDate(string userId)
+        {
+            try
+            {
+                using (MySqlConnection con = new MySqlConnection(getConString()))
+                {
+                    con.Open();
+                    string sqlQuery = "SELECT MAX(created_at) FROM posts WHERE userid = @userId ORDER BY created_at DESC LIMIT 1";
+                    using (MySqlCommand cmd = new MySqlCommand(sqlQuery, con))
+                    {
+                        cmd.Parameters.AddWithValue("@userId", userId);
+
+                        object result = cmd.ExecuteScalar();
+                        if (result == null || result == DBNull.Value)
+                        {
+                            return "null";  // No posts made by this user
+                        }
+                        else
+                        {
+                            DateTime lastPostDate = Convert.ToDateTime(result);
+                            return lastPostDate.ToString("yyyy-MM-dd"); // Return just the date portion (yyyy-MM-dd)
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log the error
+                return "Error: " + ex.Message;
+            }
+        }
+
+        [WebMethod(EnableSession = true)]
+        public string UpdatePoints(string userId, int points)
+        {
+            try
+            {
+                using (MySqlConnection con = new MySqlConnection(getConString()))
+                {
+                    con.Open();
+
+                    // Update the user's points directly
+                    string sqlQuery = "SELECT points FROM accounts WHERE userid = @userId";
+                    using (MySqlCommand cmd = new MySqlCommand(sqlQuery, con))
+                    {
+                        cmd.Parameters.AddWithValue("@userId", userId);
+
+                        object result = cmd.ExecuteScalar();
+                        if (result == null || result == DBNull.Value)
+                        {
+                            return "Error: User does not have a points record.";
+                        }
+                        else
+                        {
+                            // Update the points
+                            int currentPoints = Convert.ToInt32(result);
+                            int updatedPoints = currentPoints + points;
+
+                            string sqlUpdateQuery = "UPDATE accounts SET points = @updatedPoints WHERE userid = @userId";
+                            using (MySqlCommand updateCmd = new MySqlCommand(sqlUpdateQuery, con))
+                            {
+                                updateCmd.Parameters.AddWithValue("@updatedPoints", updatedPoints);
+                                updateCmd.Parameters.AddWithValue("@userId", userId);
+                                updateCmd.ExecuteNonQuery();
+                            }
+
+                            return "Points updated successfully!";
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log the error
+                return "Error: " + ex.Message;
+            }
+        }
+
+        [WebMethod(EnableSession = true)]
+        public string GetUserPoints(string userId)
+        {
+            try
+            {
+                using (MySqlConnection con = new MySqlConnection(getConString()))
+                {
+                    con.Open();
+                    string sqlQuery = "SELECT points FROM accounts WHERE userid = @userId";
+                    using (MySqlCommand cmd = new MySqlCommand(sqlQuery, con))
+                    {
+                        cmd.Parameters.AddWithValue("@userId", userId);
+
+                        object result = cmd.ExecuteScalar();
+                        if (result == null || result == DBNull.Value)
+                        {
+                            return "0"; // If no points are found, return 0
+                        }
+                        else
+                        {
+                            return result.ToString(); // Return the points as string
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log the error
+                return "Error: " + ex.Message;
+            }
+        }
+
+
+
     }
 }

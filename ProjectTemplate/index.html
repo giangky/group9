@@ -79,6 +79,9 @@
                             $("#managerDashboardLink").css("display", "none");
                         }
 
+                        // Fetch and display user points on login
+                        fetchUserPoints(userId);
+
                         // Display user streak on log in
                         if (sessionStorage.getItem('userId')) {
                             getStreak();
@@ -159,8 +162,12 @@
             const userText = $("#loggedInUser").text(); // Example: "User: username"
             const userId = userText.replace("User: ", "").trim(); // Extracts only the username
 
-            var webMethod = "ProjectServices.asmx/CreatePost";
-            var parameters = "{ \"title\":\"" + encodeURI(title) + "\",\"content\":\"" + encodeURI(content) + "\", \"userId\":\"" + encodeURI(userId) + "\"}";
+            // Get current date to check if it's the user's first post of the day
+            const currentDate = new Date().toISOString().split('T')[0]; // Format YYYY-MM-DD
+
+            // Web method to check the user's last post date
+            var webMethod = "ProjectServices.asmx/GetLastPostDate";
+            var parameters = "{\"userId\":\"" + encodeURI(userId) + "\"}";
 
             $.ajax({
                 type: "POST",
@@ -169,19 +176,65 @@
                 contentType: "application/json; charset=utf-8",
                 dataType: "json",
                 success: function (msg) {
-                    alert("Post Submitted");
-                    GetPosts(); // Refresh posts after submission
-                    updateStreak(); // Update the streak after posting
+                    if (msg.d) {
+                        let lastPostDate = msg.d; // Date of the last post made by the user
+                        let pointsAwarded = 0;
 
+                        // If the user has never posted today, award points
+                        if (lastPostDate !== currentDate) {
+                            pointsAwarded = 5; // Award 5 points for the first post of the day
+
+                            // Update points in the accounts table (server-side)
+                            var updatePointsMethod = "ProjectServices.asmx/UpdatePoints";
+                            var updatePointsParameters = "{ \"userId\":\"" + encodeURI(userId) + "\", \"points\":\"" + pointsAwarded + "\"}";
+
+                            $.ajax({
+                                type: "POST",
+                                url: updatePointsMethod,
+                                data: updatePointsParameters,
+                                contentType: "application/json; charset=utf-8",
+                                dataType: "json",
+                                success: function () {
+                                    // Successfully updated points in the accounts table
+                                    updatePointsDisplay(userId); // Update the points displayed on the user info panel
+                                },
+                                error: function (e) {
+                                    alert("Error updating points.");
+                                }
+                            });
+                        }
+
+                        // Now, submit the post
+                        var createPostMethod = "ProjectServices.asmx/CreatePost";
+                        var parameters = "{ \"title\":\"" + encodeURI(title) + "\",\"content\":\"" + encodeURI(content) + "\", \"userId\":\"" + encodeURI(userId) + "\"}";
+
+                        $.ajax({
+                            type: "POST",
+                            url: createPostMethod,
+                            data: parameters,
+                            contentType: "application/json; charset=utf-8",
+                            dataType: "json",
+                            success: function (msg) {
+                                alert("Post Submitted");
+                                GetPosts(); // Refresh posts after submission
+                                updateStreak(); // Update the streak after posting
+                            },
+                            error: function (e) {
+                                alert("Error submitting post.");
+                            }
+                        });
+
+                        // Reset the form and hide it
+                        document.getElementById('postForm').reset();
+                        document.getElementById('postFormContainer').style.display = 'none';
+                    } else {
+                        alert("Error: Unable to fetch last post date.");
+                    }
                 },
                 error: function (e) {
-                    alert("Error submitting post.");
+                    alert("Error fetching last post date.");
                 }
             });
-
-            // Reset the form and hide it
-            document.getElementById('postForm').reset();
-            document.getElementById('postFormContainer').style.display = 'none';
         }
 
         var postsArray;
@@ -563,7 +616,51 @@
             });
         }
 
+        // Function to update the points display on the user info panel
+        function updatePointsDisplay(userId) {
+            var webMethod = "ProjectServices.asmx/GetUserPoints";
+            var parameters = "{\"userId\":\"" + encodeURI(userId) + "\"}";
 
+            $.ajax({
+                type: "POST",
+                url: webMethod,
+                data: parameters,
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (msg) {
+                    if (msg.d) {
+                        // Display the points on the user info panel
+                        $("#userPoints").text("Points: " + msg.d); 
+                    }
+                },
+                error: function (e) {
+                    alert("Error fetching points.");
+                }
+            });
+        }
+
+        // Function to fetch and display the user's points
+        function fetchUserPoints(userId) {
+            var webMethod = "ProjectServices.asmx/GetUserPoints";
+            var parameters = "{\"userId\":\"" + encodeURI(userId) + "\"}";
+
+            $.ajax({
+                type: "POST",
+                url: webMethod,
+                data: parameters,
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (msg) {
+                    if (msg.d !== undefined && msg.d !== null) {
+                        // Update the points in the user info section
+                        $("#userPoints").text("Points: " + msg.d);
+                    } 
+                },
+                error: function (e) {
+                    alert("Error fetching user points.");
+                }
+            });
+        }
 
         function getUserId() {
             return localStorage.getItem('userId'); // Example: get from localStorage
@@ -993,6 +1090,7 @@
 
             <span id="loggedInUser"></span>
             <button id="logOutButton" onclick="logOut()">Log Out</button>
+            <div id="userPoints"></div>
             <div id="streakDisplay"></div>
 
         </div>
