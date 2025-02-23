@@ -152,7 +152,7 @@ namespace ProjectTemplate
 
             //SQL query to select variables from table
             string sqlSelect = @"
-                               SELECT p.post_id, p.title,p.content,p.userid,a.admin,p.created_at,
+                               SELECT p.post_id, p.title,p.content,p.userid,a.admin,p.created_at,p.review_status,
                                COALESCE(SUM(CASE WHEN v.vote_type = 1 THEN 1 ELSE 0 END), 0) AS upvoteCount,
                                COALESCE(SUM(CASE WHEN v.vote_type = -1 THEN 1 ELSE 0 END), 0) AS downvoteCount
                                FROM posts p
@@ -184,7 +184,8 @@ namespace ProjectTemplate
                     content = sqlDt.Rows[i]["content"].ToString(),
                     postId = sqlDt.Rows[i]["post_id"].ToString(),
                     upvoteCount = Convert.ToInt32(sqlDt.Rows[i]["upvoteCount"]),
-                    downvoteCount = Convert.ToInt32(sqlDt.Rows[i]["downvoteCount"])
+                    downvoteCount = Convert.ToInt32(sqlDt.Rows[i]["downvoteCount"]),
+                    status = sqlDt.Rows[i]["review_status"].ToString().ToUpperInvariant(),
                 });
 
             }
@@ -236,7 +237,7 @@ namespace ProjectTemplate
                     content = sqlDt.Rows[i]["content"].ToString(),
                     postId = sqlDt.Rows[i]["post_id"].ToString(),
                     upvoteCount = Convert.ToInt32(sqlDt.Rows[i]["upvoteCount"]),
-                    
+
                 });
 
             }
@@ -454,7 +455,7 @@ namespace ProjectTemplate
                 return "Failed to delete comment.";
             }
         }
-        
+
         private void DeletedCommentEmail(string email)
         {
             try
@@ -598,7 +599,7 @@ namespace ProjectTemplate
                         }
                     }
 
-                    
+
 
 
                 }
@@ -606,14 +607,14 @@ namespace ProjectTemplate
             }
 
         }
-       
+
 
         [WebMethod(EnableSession = true)]
         public string GetStreak(string userId)
         {
             try
             {
-                 
+
 
                 using (MySqlConnection con = new MySqlConnection(getConString()))
                 {
@@ -650,7 +651,7 @@ namespace ProjectTemplate
         {
             try
             {
-                
+
                 using (MySqlConnection con = new MySqlConnection(getConString()))
                 {
                     con.Open();
@@ -668,7 +669,7 @@ namespace ProjectTemplate
                     }
                     else
                     {
-                     
+
                         query = "INSERT INTO streak (userId, streakCount, lastPostDate) VALUES (@userId, @streakCount, @lastPostDate)";
                     }
 
@@ -687,8 +688,84 @@ namespace ProjectTemplate
             }
         }
 
+        [WebMethod(EnableSession = true)]
+        public string SetStatus(int postId, string newStatus)
+        {
+            Boolean isAdmin = Convert.ToBoolean(Session["admin"]);
 
+            if (Session["admin"] == null || !isAdmin)
+            {
+                return "Unauthorized. Admin access required.";
+            }
+
+            string[] validStatuses = { "unreviewed","reviewed", "in progress", "resolved" };
+            if (!validStatuses.Contains(newStatus.ToLower()))
+            {
+                return "Invalid status.";
+            }
+
+            try
+            {
+                using (MySqlConnection con = new MySqlConnection(getConString()))
+                {
+                    con.Open();
+                    string sqlQuery = "UPDATE posts SET review_status = @status WHERE post_id = @postId";
+                    using (MySqlCommand cmd = new MySqlCommand(sqlQuery, con))
+                    {
+                        cmd.Parameters.AddWithValue("@postId", postId);
+                        cmd.Parameters.AddWithValue("@status", newStatus);
+                        int rowsAffected = cmd.ExecuteNonQuery();
+
+                        if (rowsAffected > 0)
+                        {
+                            return "Success: Status updated.";
+                        }
+                        else
+                        {
+                            return "Error: Post not found.";
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log the error
+                return "Error: " + ex.Message;
+            }
+        }
+
+        [WebMethod(EnableSession = true)]
+        public string GetStatus(int postId)
+        {
+            try
+            {
+                using (MySqlConnection con = new MySqlConnection(getConString()))
+                {
+                    con.Open();
+                    string sqlQuery = "SELECT review_status FROM posts WHERE post_id = @postId";
+                    using (MySqlCommand cmd = new MySqlCommand(sqlQuery, con))
+                    {
+                        cmd.Parameters.AddWithValue("@postId", postId);
+
+                        object result = cmd.ExecuteScalar();
+                        if (result == null || result == DBNull.Value)
+                        {
+                            return "null";
+                        }
+                        else
+                        {
+                            string status = result.ToString();
+                            return status;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log the error
+                return "Error: " + ex.Message;
+            }
+        }
 
     }
-
 }

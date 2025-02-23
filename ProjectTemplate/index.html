@@ -206,7 +206,7 @@
                             // Generate HTML content for each post
                             var post = `
                                 <div class='postRow' id='post${postsArray[i].postId}'>
-                                    <h3>${postsArray[i].title}</h3>
+                                    <h3>${postsArray[i].title}</h3> <span id='status'>${postsArray[i].status}</span>
                                     <p class='postUser'>Posted by: ${postsArray[i].userId}</p>
                                     <p class='post-text'>${postsArray[i].content}</p>
                                     <div class='post-footer'>
@@ -635,6 +635,7 @@
             color: gray;
             margin-top: -15px;
             margin-bottom: 5px; 
+            clear: left;
         }
 
         .weeklyQuestion {
@@ -804,6 +805,21 @@
             color: #333;
         }
 
+        h3{
+            float:left;
+            margin-top: 0px;
+        }
+
+        #status {
+            color: white;
+            clear: none;
+            margin-top: 0px;
+            margin-left: 8px;
+            background-color: #559c4c;
+            border-radius: 3px;
+            font-size: 14px;
+            padding: 5px;
+        }
 		
 	</style>
 	<!--END OF YOUR OWN CSS-->
