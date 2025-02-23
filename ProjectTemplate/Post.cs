@@ -16,6 +16,7 @@ namespace ProjectTemplate
         public bool isAnonymous { get; set; }
         public DateTime createdAt { get; set; }  // Added to track when the post was created
         public List<Comment> comments { get; set; }  // Added to associate comments with the post
+        public string status { get; set; } 
 
         // Constructor to initialize the comments list
         public Post()
