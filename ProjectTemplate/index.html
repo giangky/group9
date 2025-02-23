@@ -28,7 +28,7 @@
 				}
 			});
         }
-        var contentPanel = ["logonPanel", "feedbackPanel"];
+        var contentPanel = ["logonPanel", "feedbackPanel", "editPostPanel", "managerDashboardPanel"];
         // Funtion to change active panel being displayed
         function showPanel(panelName) {
             clearData();
@@ -64,9 +64,26 @@
                         showPanel('feedbackPanel');
                         GetPosts();
 
+                        // Store the user ID in localStorage
+                        sessionStorage.setItem('userId', userId);
+                        sessionStorage.setItem("admin", msg.d.isAdmin);
+
                         // Store the user ID and display it
                         $("#loggedInUser").text("User: " + userId);
                         $("#userInfo").css("display", "block");
+
+                        if (msg.d.isAdmin){
+                            $("#managerDashboardLink").css("display", "inline");
+                        }
+                        else{
+                            $("#managerDashboardLink").css("display", "none");
+                        }
+
+                        // Display user streak on log in
+                        if (sessionStorage.getItem('userId')) {
+                            getStreak();
+                        }
+
 
                     }
                     else {
@@ -81,6 +98,7 @@
                 }
             });
         }
+
         function clearData() {
             clearLogon();
             clearUser();
@@ -91,6 +109,7 @@
             $('#logonId').val("");
             $('#logonPassword').val("");
         }
+
         //hide user info
         function clearUser() {
             // Hide user info
@@ -120,8 +139,8 @@
                 }
             });
         }
-       
 
+        
         // Function to show the post creation form
         function showPostForm() {
             document.getElementById('postFormContainer').style.display = 'block';
@@ -134,7 +153,7 @@
             // Get the title and content of the post
             const title = document.getElementById('postTitle').value;
             const content = document.getElementById('postContent').value;
-            
+
 
             // Extract the logged-in user ID from the displayed username
             const userText = $("#loggedInUser").text(); // Example: "User: username"
@@ -151,7 +170,9 @@
                 dataType: "json",
                 success: function (msg) {
                     alert("Post Submitted");
-                    GetPosts();
+                    GetPosts(); // Refresh posts after submission
+                    updateStreak(); // Update the streak after posting
+
                 },
                 error: function (e) {
                     alert("Error submitting post.");
@@ -169,7 +190,6 @@
             var webMethod = "ProjectServices.asmx/GetPosts";
             var parameters = "{}";
 
-            //jQuery ajax method
             $.ajax({
                 type: "POST",
                 url: webMethod,
@@ -179,33 +199,62 @@
                 success: function (msg) {
                     if (msg.d.length > 0) {
                         postsArray = msg.d;
+                        postsArray.sort((a, b) => b.upvoteCount - a.upvoteCount);
                         $("#postsContainer").empty();
 
-                        //Loop through postsArray and format posts
                         for (var i = 0; i < postsArray.length; i++) {
+                            // Generate HTML content for each post
+                            var post = `
+                        <div class='postRow' id='post${postsArray[i].postId}'>
+                            <h3>${postsArray[i].title}</h3>
+                            <span id='status'>${postsArray[i].status}</span>
+                            <p class='postUser'>Posted by: ${postsArray[i].userId}</p>
+                            <p class='post-text'>${postsArray[i].content}</p>
 
-                            //html output for each post
-                            var post = 
-                            "<div class='postRow' id='post" + i + "'>" +
-                            "<h3>" + postsArray[i].title + "</h3>" +
-                            "<p class='postUser'>Posted by: " + postsArray[i].userId + "</p>" + 
-                            "<p>" + postsArray[i].content + "</p>" +
-                            "<hr></div>";
-                         
+                            <!-- Vote buttons -->
+                            <div class='vote-buttons'>
+                                <button class='upvote-button' onclick='votePost(${postsArray[i].postId}, 1)'>
+                                    <img src='Images/Like.png' alt='Upvote' class='upvote-icon'>
+                                </button>
+                                <span id='upvoteCount-${postsArray[i].postId}' class='vote-count'>${postsArray[i].upvoteCount}</span>
+                                <button class='downvote-button' onclick='votePost(${postsArray[i].postId}, -1)'>
+                                    <img src='Images/Dislike.png' alt='Downvote' class='downvote-icon'>
+                                </button>
+                                <span id='downvoteCount-${postsArray[i].postId}' class='vote-count'>${postsArray[i].downvoteCount}</span>
+                            </div>
 
+                            <!-- Post options (Edit and Delete buttons) -->
+                            <div class='postOptions'>
+                                <button class='edit-btn' id='editBtn${postsArray[i].postId}'>Edit</button>
+                                <button class='delete-btn' id='deleteBtn${postsArray[i].postId}'>Delete</button>
+                            </div>
+
+                            <hr>
+                        </div>
+                    `;
+
+                            // Append each post to the container
                             $("#postsContainer").append(post);
-
                         }
-                    }
-                    else {
+
+                        // Add event listeners for Edit and Delete buttons after posts are rendered
+                        $(".edit-btn").on("click", function () {
+                            var postId = $(this).attr("id").replace("editBtn", "");
+                            EditPost(postId);
+                        });
+
+                        $(".delete-btn").on("click", function () {
+                            var postId = $(this).attr("id").replace("deleteBtn", "");
+                            DeletePost(postId);
+                        });
+                    } else {
                         $("#postsContainer").append("<p>No posts available at the moment.</p>");
-                    }          
+                    }
                 },
                 error: function (e) {
                     alert("Error fetching posts");
                 }
             });
-
         }
 
         function GetQuestion() {
@@ -223,19 +272,393 @@
                 }
             });
         }
-    // Function to track post char limit
-    function updateCharCount() {
-        var textArea = document.getElementById("postContent");
-        var charCount = document.getElementById("charCount");
-        var remaining = 500 - textArea.value.length;
-        charCount.textContent = remaining + " characters remaining";
-    }
 
+        function EditPost(postId) {
+            // Open an edit form for the post
+            var postContent = $(`#post${postId} .post-text`).text();
+            $(`#post${postId} .post-text`).html(`
+        <textarea id="editPostContent-${postId}">${postContent}</textarea>
+        <button onclick="savePostEdit(${postId})">Save</button>
+        <button onclick="cancelPostEdit(${postId})">Cancel</button>
+    `);
+        }
+        function savePostEdit(postId) {
+            var updatedContent = $(`#editPostContent-${postId}`).val(); // Get the updated content
+
+            var webMethod = "ProjectServices.asmx/EditPost";
+            var parameters = JSON.stringify({
+                postId: postId,
+                newContent: updatedContent
+            });
+
+            $.ajax({
+                type: "POST",
+                url: webMethod,
+                data: parameters,
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (msg) {
+                    alert(msg.d); // Show success or error message
+                    GetPosts(); // Refresh posts after editing
+                },
+                error: function (e) {
+                    alert("Error saving post: " + e.responseText);
+                }
+            });
+        }
+
+        function GetComments(postId) {
+            var webMethod = "ProjectServices.asmx/GetComments";
+            var parameters = JSON.stringify({ postId: postId });
+
+            $.ajax({
+                type: "POST",
+                url: webMethod,
+                data: parameters,
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (msg) {
+                    var commentsContainer = $(`#commentsContainer-${postId}`);
+                    commentsContainer.empty(); // Clear existing comments
+
+                    if (msg.d.length > 0) {
+                        var comments = msg.d;
+                        for (var i = 0; i < comments.length; i++) {
+                            var comment = comments[i];
+
+                            // Create the comment HTML
+                            var commentHtml = `
+                        <div class="comment" id="comment-${postId}-${i}">
+                            <p>${comment.content}</p>
+                            ${comment.isAnonymous ? "" : `<p class="comment-user">Posted by: ${comment.userId}</p>`}
+                            ${comment.userId === sessionStorage.getItem('userId') ? `
+                                <button onclick="openEditForm(${postId}, ${i}, '${comment.content}')">Edit</button>
+                                <button onclick="deleteComment(${postId}, ${i})">Delete</button>
+                            ` : ""}
+                        </div>
+                        <div id="editForm-${postId}-${i}" style="display: none;">
+                            <textarea id="editContent-${postId}-${i}">${comment.content}</textarea>
+                            <button onclick="saveEdit(${postId}, ${i}, '${comment.userId}')">Save</button>
+                            <button onclick="cancelEdit(${postId}, ${i})">Cancel</button>
+                        </div>
+                        <hr>
+                    `;
+
+                            // Append the comment to the container
+                            commentsContainer.append(commentHtml);
+                        }
+                    } else {
+                        commentsContainer.append("<p>No comments available.</p>");
+                    }
+                },
+                error: function (e) {
+                    alert("Error fetching comments: " + e.responseText);
+                }
+            });
+        }
+
+        //// Function to delete a post with confirmation dialogue
+        function DeletePost(postId) {
+            
+            let confirmDelete = confirm("Are you sure you want to delete this comment?");
+            if (!confirmDelete) return;
+
+            $.ajax({
+                type: "POST",
+                url: "ProjectServices.asmx/DeleteComment",
+                data: JSON.stringify({ postId: postId }),
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (msg) {
+                    if (msg.d === "Success") {
+                        alert("Comment deleted successfully!");
+                    GetPosts(); // Reload the posts
+                } else {
+                    alert(msg.d);
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error("Error: " + error);
+                alert("Failed to delete comment.");
+            }
+            });
+        }
+
+        // Function to upvote or downvote a post 
+        function votePost(postId, voteType) {
+
+            var userId = getUserId();
+            
+      
+            var webMethod = "ProjectServices.asmx/PostVotes";
+            var parameters = JSON.stringify({
+                "userId": userId,  
+                "postId": postId,  
+                "voteType": voteType 
+            });
+
+            console.log("Sending parameters:", parameters);
+
+            // Ensure voteType is either 1 or -1
+            if (voteType !== 1 && voteType !== -1) {
+                alert("Invalid vote type. Use 1 for upvote or -1 for downvote.");
+                return;
+            }
+
+            $.ajax({
+                type: "POST",
+                url: webMethod,
+                data: parameters,
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (msg) {
+                        alert("Vote successful.");
+                        GetPosts(); //refresh posts after voting
+                   
+                },
+                error: function (e) {
+                    console.error("Error occurred during voting:", e);
+                    console.error("Status:", e.status);
+                    console.error("Response text:", e.responseText);
+                    alert("An error occurred while voting. Check console for details.");
+                }
+            });
+        }
+
+        var feedbackArray;
+        function managerFeedback() {
+
+            var webMethod = "ProjectServices.asmx/GetFeedback";
+            var parameters = "{}";
+
+            $.ajax({
+                type: "POST",
+                url: webMethod,
+                data: parameters,
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (msg) {
+                    if (msg.d.length > 0) {
+                        feedbackArray = msg.d;
+                        $("#feedbackContainer").empty();
+
+                        for (var i = 0; i < feedbackArray.length; i++) {
+                            
+                            var feedback = `
+                                <div class='postRow' id='post${feedbackArray[i].postId}'>
+                                    <h3>${feedbackArray[i].title}</h3>
+                                    <p class='postUser'>Posted by: ${feedbackArray[i].userId}</p>
+                                    <p>${feedbackArray[i].content}</p>
+                                    <div class='post-footer' id="feedback">
+                                        <div class='post-upvote-count'>
+                                            Total Upvotes: <span id='upvoteCount-${feedbackArray[i].postId}'>${feedbackArray[i].upvoteCount}</span>
+                                        </div>
+                                    </div>
+                                    <hr>
+                                </div>
+                            `;
+
+                            // Append each post to the container
+                            $("#feedbackContainer").append(feedback);
+                            
+                        }
+                    } else {
+                        $("#feedbackContainer").append("<p>No posts available at the moment.</p>");
+                    }
+                },
+                error: function (e) {
+                    alert("Error fetching posts");
+                }
+            });
+        }
+
+        // Function to check the user's streak
+        function getStreak() {
+            var userId = sessionStorage.getItem('userId'); 
+
+            var webMethod = "ProjectServices.asmx/GetStreak";
+            var parameters = "{\"userId\":\"" + encodeURI(userId) + "\"}"; // Send the user ID to the server
+
+            $.ajax({
+                type: "POST",
+                url: webMethod,
+                data: parameters,
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (msg) {
+                    var streakData = msg.d.split(','); // Expected response: "streakCount,lastPostDate"
+                    var streakCount = streakData[0];
+                    var lastPostDate = streakData[1];
+
+                    // Display the streak count to the user
+                    $("#streakDisplay").text("Your streak: " + streakCount + " days (Last post: " + lastPostDate + ")");
+                },
+                error: function (e) {
+                    alert("Error fetching streak data.");
+                }
+            });
+        }
+
+        // Function to update the user's streak when they submit a post
+        function updateStreak() {
+            var userId = sessionStorage.getItem('userId'); 
+            var streakCount = 0; // Default value for streak count (will be updated with server response)
+            var lastPostDate = new Date().toISOString().split('T')[0]; // Get today's date
+
+            var webMethod = "ProjectServices.asmx/GetStreak";
+            var parameters = "{\"userId\":\"" + encodeURI(userId) + "\"}"; 
+
+            $.ajax({
+                type: "POST",
+                url: webMethod,
+                data: parameters,
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (msg) {
+                    if (msg.d && msg.d !== "0,No previous posts") {
+                        var streakData = msg.d.split(','); // Expected response: "streakCount,lastPostDate"
+                        streakCount = parseInt(streakData[0]);
+
+                        // Check if the streak should be updated based on the last post date
+                        var lastPostDateFromServer = new Date(streakData[1]);
+
+                        // Update streak count if the user posts on consecutive days
+                        var today = new Date();
+                        var diffInTime = today.getTime() - lastPostDateFromServer.getTime();
+                        var diffInDays = diffInTime / (1000 * 3600 * 24);
+
+                        if (diffInDays === 1) {
+                            streakCount++; // Increase streak if the user posted yesterday
+                        } else if (diffInDays > 1) {
+                            streakCount = 1; // Reset streak if the user hasn't posted for more than one day
+                        }
+                    }
+                    else {
+                        // If no streak data (i.e., the user is posting for the first time)
+                        streakCount = 1; // Set streak to 1 on the first post
+                    }
+
+                    // Now, update the streak in the backend
+                    var updateWebMethod = "ProjectServices.asmx/UpdateStreak";
+                    var updateParameters = "{\"userId\":\"" + encodeURI(userId) + "\",\"streakCount\":\"" + streakCount + "\",\"lastPostDate\":\"" + lastPostDate + "\"}";
+
+                    $.ajax({
+                        type: "POST",
+                        url: updateWebMethod,
+                        data: updateParameters,
+                        contentType: "application/json; charset=utf-8",
+                        dataType: "json",
+                        success: function (msg) {
+                            alert("Streak updated successfully!");
+                            getStreak(); // Update streak on the front-end after posting
+                        },
+                        error: function (e) {
+                            alert("Error updating streak data.");
+                        }
+                    });
+                },
+                error: function (e) {
+                    alert("Error fetching streak data.");
+                }
+            });
+        }
+
+
+
+        function getUserId() {
+            return localStorage.getItem('userId'); // Example: get from localStorage
+        } 
+
+
+        // Function to track post char limit
+        function updateCharCount() {
+            var textArea = document.getElementById("postContent");
+            var charCount = document.getElementById("charCount");
+            var remaining = 500 - textArea.value.length;
+            charCount.textContent = remaining + " characters remaining";
+        }
+
+        // Function to navigate to the Manager Dashboard
+        function goToManagerDashboard() {
+            var userId = sessionStorage.getItem('userId');
+            console.log("Retrieved userId from sessionStorage: " + userId); // Debugging log
+            if (userId) {
+                $("#managerDashboardPanel #loggedInUser").text("User: " + userId);
+
+            } else {
+                console.log("No userId found in sessionStorage");
+            }
+            showPanel('managerDashboardPanel');
+            managerFeedback();
+
+            $("#managerDashboardLink").css("display", "none"); 
+            $("#feedbackLink").css("display", "inline-block");
+        }
+
+        // Function to navigate to the Manager Dashboard
+        function goToFeedback() {
+
+            var isAdmin = sessionStorage.getItem('admin')
+            showPanel('feedbackPanel');
+
+             $("#loggedInUser").text("User: " + sessionStorage.getItem('userId'));
+             $("#userInfo").css("display", "block");
+
+            if (isAdmin) {
+                $("#managerDashboardLink").css("display", "inline");
+            }
+            else {
+                $("#managerDashboardLink").css("display", "none");
+            }
+            GetPosts();
+        }
         // Ensure that posts are loaded when the page is ready
         $(document).ready(function () {
             showPanel("logonPanel");
+
         });
-        
+
+        // Function to filter feedback by time range
+        function filterFeedbackByDate() {
+            const startDate = new Date(document.getElementById('startDate').value);
+            const endDate = new Date(document.getElementById('endDate').value);
+
+            if (!startDate || !endDate) {
+                alert("Please select both start and end dates.");
+                return;
+            }
+
+            // Filter feedback data by time range
+            const filteredData = feedbackData.filter(feedback => {
+                const feedbackDate = new Date(feedback.timestamp);
+                return feedbackDate >= startDate && feedbackDate <= endDate;
+            });
+
+            // Display filtered feedback
+            displayFilteredFeedback(filteredData);
+        }
+
+        // Function to display filtered feedback in the UI
+        function displayFilteredFeedback(filteredData) {
+            const feedbackContainer = document.getElementById('feedbackContainer');
+            feedbackContainer.innerHTML = ''; // Clear existing feedback
+
+            if (filteredData.length === 0) {
+                feedbackContainer.innerHTML = "<p>No feedback found for the selected time range.</p>";
+                return;
+            }
+
+            filteredData.forEach(feedback => {
+                const feedbackItem = document.createElement('div');
+                feedbackItem.className = 'feedback-item';
+                feedbackItem.innerHTML = `
+            <p><strong>Date:</strong> ${new Date(feedback.timestamp).toLocaleDateString()}</p>
+            <p><strong>Message:</strong> ${feedback.message}</p>
+        `;
+                feedbackContainer.appendChild(feedbackItem);
+            });
+        }
+      
 	</script>
 	<!--END OF YOUR OWN JAVASCRIPT-->
 
@@ -264,7 +687,7 @@
 
         .container {
             width: 100%;
-            max-width: 600px;
+            max-width: 800px;
             background-color: #ffffff;
             border-radius: 12px;
             padding: 30px;
@@ -350,6 +773,7 @@
             color: gray;
             margin-top: -15px;
             margin-bottom: 5px; 
+            clear: left;
         }
 
         .weeklyQuestion {
@@ -369,11 +793,19 @@
             padding-bottom: 6px;
          }
 
-        
-         #logonPanel, #feedbackPanel {
-             display: none;
-         }
+        #logonPanel, #feedbackPanel, #managerDashboardPanel {
+            display: none;
+        }
 
+        #feedbackPanel, #managerDashboardPanel {
+            width: 100%;
+            max-height: 700px;
+            overflow-y: auto;
+        }
+
+        #logonPanel {
+            max-width: 500px;
+        }
 
         .button-container {
             width: 100%;
@@ -385,7 +817,8 @@
             display: flex;
             justify-content: right;
         }
-        #userInfo {
+
+        #userInfo, #managerUserInfo {
             position: absolute;
             top: 10px;
             right: 20px;
@@ -393,13 +826,17 @@
             color: white;
             padding: 10px 15px;
             border-radius: 8px;
-            display: none;
+            display: flex;
+            flex-direction: row;
             align-items: center;
-            font-weight: bold;
+            gap: 20px;
+            
         }
+
         #loggedInUser {
             font-weight: bold;
             margin-right: 15px;
+
         }
         #logOutButton {
             background-color: red;
@@ -409,18 +846,124 @@
             border-radius: 5px;
             cursor: pointer;
         }
+
         #charCount {
             text-align: right;
             font-size: 14px;
             color: gray;
         }
 
+        .post-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .vote-buttons {
+            display: flex;
+            align-items: center;
+            gap: 5px; 
+        }
+
+        .vote-count {
+            font-size: 15px;
+            color: #555;
+            font: bold;
+        }
+
+        .upvote-button, .downvote-button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        .upvote-icon, .downvote-icon {
+            width: 30px;
+            height: 30px;
+        }
+
+        .postOptions {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            border: none;
+        }
+
+            .postOptions button {
+                font-size: 13px;
+                background-color: transparent;
+                color: dimgray;
+                padding: 8px;
+                line-height: 0px;
+            }
+
+        .postOptions button:hover {
+            text-decoration: underline;
+        }
+
+        .postRow {
+            position: relative;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #fff;
+        }
+
+        #managerDashboardLink, #feedbackLink {
+            display: none;
+            font-size: 1.2rem;
+            margin-right: 20px;
+        }
+
+        #managerDashboardLink a, #feedbackLink a {
+            color: white;
+            font-size: 1rem;
+            font-weight: bold;
+            text-decoration: none;
+        }
+
+        #managerDashboardLink a:hover, #feedbackLink a:hover {
+            text-decoration: underline;
+        }
+
+        #feedback {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            position: relative;
+            font-size: 14px;
+            color: #555;
+        }
+
+        .post-upvote-count {
+            margin-right: 10px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        h3{
+            float:left;
+            margin-top: 0px;
+        }
+
+        #status {
+            color: white;
+            clear: none;
+            margin-top: 0px;
+            margin-left: 8px;
+            background-color: #559c4c;
+            border-radius: 3px;
+            font-size: 14px;
+            padding: 5px;
+        }
 		
 	</style>
 	<!--END OF YOUR OWN CSS-->
 </head>
 <body onload="GetQuestion()">
-	    
+
     <div id="logonPanel" class="container">
         <h1>Log In</h1>
         <form onsubmit="LogOn($('#logonId').val(), $('#logonPassword').val()); return false;">
@@ -436,15 +979,22 @@
             </div>
         </form>
     </div>
-	
 
-	<!--Post Suggestion Form-->
+
+    <!--Post Suggestion Form-->
     <div id="feedbackPanel" class="container">
 
         <!-- User Info Display -->
         <div id="userInfo">
+            <!-- Manager Dashboard Link (only visible for admin users) -->
+            <div id="managerDashboardLink">
+                <a href="javascript:goToManagerDashboard();">Manager Dashboard</a>
+            </div>
+
             <span id="loggedInUser"></span>
             <button id="logOutButton" onclick="logOut()">Log Out</button>
+            <div id="streakDisplay"></div>
+
         </div>
 
         <!--Weekly Question-->
@@ -469,7 +1019,7 @@
                 <!--Content for feedback form limited to 500 chars-->
                 <label for="postContent">Post Content</label>
                 <textarea id="postContent" name="postContent" placeholder="Write your post content here" required maxlength="500" oninput="updateCharCount()"></textarea>
-                <p id="charCount">500 chatacters remaining</p>
+                <p id="charCount">500 characters remaining</p>
 
                 <div class="button-containter">
                     <button type="submit">Submit Post</button>
@@ -480,6 +1030,38 @@
         <!--Container for posts-->
         <div id="postsContainer"></div>
 
+    </div>
+
+    <!-- Manager Dashboard Panel (initially hidden) -->
+    <div id="managerDashboardPanel" class="container">
+        <h1>Manager Dashboard</h1>
+
+        <!-- User Info Display -->
+        <div id="managerUserInfo">
+            <!-- Feedback Dashboard Link return -->
+            <div id="feedbackLink">
+                <a href="javascript:goToFeedback();">Feedback</a>
+            </div>
+
+            <span id="loggedInUser"></span>
+            <button id="logOutButton" onclick="logOut()">Log Out</button>
+
+        </div>
+
+        <div id="timeRangeFilter">
+            <h2>Filter Feedback by Time Range</h2>
+            <div>
+                <label for="startDate">Start Date:</label>
+                <input type="date" id="startDate">
+
+                <label for="endDate">End Date:</label>
+                <input type="date" id="endDate">
+
+                <button onclick="filterFeedbackByDate()">Filter Feedback</button>
+            </div>
+        </div>
+        <!-- Add manager-specific content here -->
+        <div id="feedbackContainer"></div>
     </div>
 
 

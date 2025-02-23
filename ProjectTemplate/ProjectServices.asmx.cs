@@ -11,7 +11,10 @@ using System.Web.UI.WebControls;
 using System.Runtime.Remoting.Messaging;
 using System.Configuration;
 using System.Xml.Linq;
+using System.Runtime.Remoting.Contexts;
+using System.Data.SqlClient;
 using System.Net.Mail;
+using MySql.Data.MySqlClient.Authentication;
 
 namespace ProjectTemplate
 {
@@ -71,10 +74,10 @@ namespace ProjectTemplate
         }
         // LogOn method to allow users to access system
         [WebMethod(EnableSession = true)]
-        public bool LogOn(string userid, string pass)
+        public object LogOn(string userid, string pass)
         {
-            //we return this flag to tell them if they logged in or not
-            bool success = false;
+            // Create an object to hold the response
+            var response = new { success = false, isAdmin = false };
 
             MySqlConnection sqlConnection = new MySqlConnection(getConString());
 
@@ -88,7 +91,7 @@ namespace ProjectTemplate
             sqlCommand.Parameters.AddWithValue("@userid", HttpUtility.UrlDecode(userid));
             sqlCommand.Parameters.AddWithValue("@pass", HttpUtility.UrlDecode(pass));
 
-         
+
             MySqlDataAdapter sqlDa = new MySqlDataAdapter(sqlCommand);
             //here's the table we want to fill with the results from our query
             DataTable sqlDt = new DataTable();
@@ -99,12 +102,14 @@ namespace ProjectTemplate
             {
 
                 Session["id"] = sqlDt.Rows[0]["id"];
+                Session["uid"] = userid;
                 Session["admin"] = sqlDt.Rows[0]["admin"];
-                success = true;
-                
+
+                bool isAdmin = (sqlDt.Rows[0]["admin"].ToString() == "1");
+                response = new { success = true, isAdmin = isAdmin };
+
             }
-            // Return an object containing both success and isAdmin
-            return success;
+            return response; // Return the object containing both success and admin status
         }
         //Insert query for creating a post
         [WebMethod(EnableSession = true)]
@@ -120,7 +125,7 @@ namespace ProjectTemplate
             sqlCommand.Parameters.AddWithValue("@title", HttpUtility.UrlDecode(title));
             sqlCommand.Parameters.AddWithValue("@content", HttpUtility.UrlDecode(content));
             sqlCommand.Parameters.AddWithValue("@userId", userId);
-            
+
 
             sqlConnection.Open();
 
@@ -146,10 +151,16 @@ namespace ProjectTemplate
             MySqlConnection sqlConnection = new MySqlConnection(getConString());
 
             //SQL query to select variables from table
-            string sqlSelect = "SELECT p.post_id, p.title, p.content, p.userid, a.admin " +
-                                "FROM posts p " +
-                                "LEFT JOIN accounts a ON p.userid = a.userid " + // Join to check if poster is an admin
-                                "ORDER BY p.created_at DESC LIMIT 5";
+            string sqlSelect = @"
+                               SELECT p.post_id, p.title,p.content,p.userid,a.admin,p.created_at,p.review_status,
+                               COALESCE(SUM(CASE WHEN v.vote_type = 1 THEN 1 ELSE 0 END), 0) AS upvoteCount,
+                               COALESCE(SUM(CASE WHEN v.vote_type = -1 THEN 1 ELSE 0 END), 0) AS downvoteCount
+                               FROM posts p
+                               LEFT JOIN accounts a ON p.userid = a.userid
+                               LEFT JOIN votes v ON p.post_id = v.post_id
+                               GROUP BY p.post_id, p.title, p.content, p.userid, a.admin, p.created_at
+                               ORDER BY p.created_at DESC
+                               LIMIT 8";
 
             MySqlCommand sqlCommand = new MySqlCommand(sqlSelect, sqlConnection);
 
@@ -159,7 +170,7 @@ namespace ProjectTemplate
 
             //List to hold posts
             List<Post> posts = new List<Post>();
-           
+
 
             for (int i = 0; i < sqlDt.Rows.Count; i++)
             {
@@ -170,7 +181,11 @@ namespace ProjectTemplate
                 {
                     title = sqlDt.Rows[i]["title"].ToString(),
                     userId = displayedUserId, // Display only if admin, otherwise "Anonymous"
-                    content = sqlDt.Rows[i]["content"].ToString()
+                    content = sqlDt.Rows[i]["content"].ToString(),
+                    postId = sqlDt.Rows[i]["post_id"].ToString(),
+                    upvoteCount = Convert.ToInt32(sqlDt.Rows[i]["upvoteCount"]),
+                    downvoteCount = Convert.ToInt32(sqlDt.Rows[i]["downvoteCount"]),
+                    status = sqlDt.Rows[i]["review_status"].ToString().ToUpperInvariant(),
                 });
 
             }
@@ -178,6 +193,59 @@ namespace ProjectTemplate
             return posts.ToArray();
 
         }
+
+        //Retrieve posts for manager dashboard
+        [WebMethod(EnableSession = true)]
+        public Post[] GetFeedback()
+        {
+
+            DataTable sqlDt = new DataTable("posts");
+
+            //Get connection string 
+            MySqlConnection sqlConnection = new MySqlConnection(getConString());
+
+            //SQL query to select variables from table
+            string sqlSelect = @"
+                               SELECT p.post_id, p.title,p.content,p.userid,a.admin,p.created_at,
+                               COALESCE(SUM(CASE WHEN v.vote_type = 1 THEN 1 ELSE 0 END), 0) AS upvoteCount
+                               FROM posts p
+                               LEFT JOIN accounts a ON p.userid = a.userid
+                               LEFT JOIN votes v ON p.post_id = v.post_id
+                               GROUP BY p.post_id, p.title, p.content, p.userid, a.admin, p.created_at
+                               ORDER BY upvoteCount DESC
+                               LIMIT 5";
+
+            MySqlCommand sqlCommand = new MySqlCommand(sqlSelect, sqlConnection);
+
+            //Data adapter to fill data table
+            MySqlDataAdapter sqlDa = new MySqlDataAdapter(sqlCommand);
+            sqlDa.Fill(sqlDt);
+
+            //List to hold posts
+            List<Post> posts = new List<Post>();
+
+
+            for (int i = 0; i < sqlDt.Rows.Count; i++)
+            {
+                bool isPostFromAdmin = sqlDt.Rows[i]["admin"] != DBNull.Value && Convert.ToBoolean(sqlDt.Rows[i]["admin"]);
+                string displayedUserId = isPostFromAdmin ? sqlDt.Rows[i]["userid"].ToString() : "Anonymous"; // Show only if admin
+
+                posts.Add(new Post
+                {
+                    title = sqlDt.Rows[i]["title"].ToString(),
+                    userId = displayedUserId, // Display only if admin, otherwise "Anonymous"
+                    content = sqlDt.Rows[i]["content"].ToString(),
+                    postId = sqlDt.Rows[i]["post_id"].ToString(),
+                    upvoteCount = Convert.ToInt32(sqlDt.Rows[i]["upvoteCount"]),
+
+                });
+
+            }
+            //Return array 
+            return posts.ToArray();
+
+        }
+
 
         //Insert query for creating a comment (Anonymous or Not)
         [WebMethod(EnableSession = true)]
@@ -192,7 +260,7 @@ namespace ProjectTemplate
 
             sqlCommand.Parameters.AddWithValue("@postId", postId);
             sqlCommand.Parameters.AddWithValue("@content", HttpUtility.UrlDecode(content));
-            
+
 
             sqlConnection.Open();
 
@@ -243,7 +311,8 @@ namespace ProjectTemplate
             return comments.ToArray();
 
         }
-         //weekly question web method
+
+        //gets and automatically updates feedback question weekly
         [WebMethod(EnableSession = true)]
         public string GetQuestion()
         {
@@ -266,70 +335,163 @@ namespace ProjectTemplate
             if (sqlDt.Rows.Count > 0)
             {
                 weeklyQuestion = (string)sqlDt.Rows[0]["question"];
-            } else
+            }
+            else
             {
                 weeklyQuestion = "Check back again for the Weekly Question!";
             }
             return weeklyQuestion;
         }
         [WebMethod(EnableSession = true)]
-        public bool logOut ()
+        public bool logOut()
         {
             HttpContext.Current.Session.Abandon();
             return true;
         }
 
-        //NEW delete-edit comment BRANCH
+        //allows original poster to edit their own post
         [WebMethod(EnableSession = true)]
-        public void EditComment(string postID, string content)
+        public string EditPost(int postId, string newContent)
         {
-            if (Convert.ToInt32(Session["admin"]) == 1)
+            // Check if the user is logged in
+            if (Session["uid"] == null)
             {
-        
-                string sqlSelect = "update posts set content=@contentValue where post_id=@idValue";
+                return "Unauthorized: User not logged in.";
+            }
 
-                MySqlConnection sqlConnection = new MySqlConnection(getConString());
-                MySqlCommand sqlCommand = new MySqlCommand(sqlSelect, sqlConnection);
+            string userId = Session["uid"].ToString();
 
-                sqlCommand.Parameters.AddWithValue("@idValue", HttpUtility.UrlDecode(postID));
-                sqlCommand.Parameters.AddWithValue("@contentValue", HttpUtility.UrlDecode(content));
-
-                sqlConnection.Open();
-                try
+            try
+            {
+                using (MySqlConnection con = new MySqlConnection(getConString()))
                 {
-                    sqlCommand.ExecuteNonQuery();
+                    con.Open();
+
+                    // Check if the post belongs to the logged-in user
+                    string checkQuery = "SELECT userid FROM posts WHERE post_id = @postId";
+                    MySqlCommand checkCmd = new MySqlCommand(checkQuery, con);
+                    checkCmd.Parameters.AddWithValue("@postId", postId);
+
+                    object result = checkCmd.ExecuteScalar();
+                    if (result == null || result == DBNull.Value)
+                    {
+                        return "Error: Post not found.";
+                    }
+
+                    string postUserId = result.ToString();
+                    if (postUserId != userId)
+                    {
+                        return "Unauthorized: You can only edit your own posts.";
+                    }
+
+                    // Update the post content
+                    string updateQuery = "UPDATE posts SET content = @newContent WHERE post_id = @postId";
+                    MySqlCommand updateCmd = new MySqlCommand(updateQuery, con);
+                    updateCmd.Parameters.AddWithValue("@newContent", HttpUtility.UrlDecode(newContent));
+                    updateCmd.Parameters.AddWithValue("@postId", postId);
+
+                    int rowsAffected = updateCmd.ExecuteNonQuery();
+                    if (rowsAffected > 0)
+                    {
+                        return "Success: Post updated.";
+                    }
+                    else
+                    {
+                        return "Error: Failed to update post.";
+                    }
                 }
-                catch (Exception e)
-                {
-                }
-                sqlConnection.Close();
+            }
+            catch (Exception ex)
+            {
+                return "Error: " + ex.Message;
             }
         }
 
+        //allows admin or original poster to delete a comment
         [WebMethod(EnableSession = true)]
-        public void DeleteComment(string postID)
+        public string DeleteComment(string postId)
         {
-            if (Convert.ToInt32(Session["admin"]) == 1)
+            if (Session["admin"] == null || Session["uid"] == null)
             {
-                string sqlSelect = "delete from posts where post_id=@idValue";
+                return "Unauthorized bc null";
+            }
 
-                MySqlConnection sqlConnection = new MySqlConnection(getConString());
-                MySqlCommand sqlCommand = new MySqlCommand(sqlSelect, sqlConnection);
+            string sessionId = Session["uid"].ToString();
+            Boolean isAdmin = Convert.ToBoolean(Session["admin"]);
 
-                sqlCommand.Parameters.AddWithValue("@idValue", HttpUtility.UrlDecode(postID));
+            string checkQuery = "SELECT userid FROM posts WHERE post_id = @postId";
 
-                sqlConnection.Open();
-                try
+            MySqlConnection sqlConnection = new MySqlConnection(getConString());
+            MySqlCommand checkCommand = new MySqlCommand(checkQuery, sqlConnection);
+
+            checkCommand.Parameters.AddWithValue("@postId", HttpUtility.UrlDecode(postId));
+
+            sqlConnection.Open();
+            object result = checkCommand.ExecuteScalar();
+            if (result == null || result == DBNull.Value)
+            {
+                return "Comment not found.";
+            }
+
+            string postUid = result.ToString();
+
+            if (postUid != sessionId && !isAdmin)
+            {
+                return "Unauthorized. Posts may only be deleted by the original poster or admin.";
+            }
+
+            string deleteQuery = "DELETE FROM posts WHERE post_id=@idValue";
+            MySqlCommand deleteCommand = new MySqlCommand(deleteQuery, sqlConnection);
+
+            deleteCommand.Parameters.AddWithValue("@idValue", HttpUtility.UrlDecode(postId));
+
+            int rowsAffected = deleteCommand.ExecuteNonQuery();
+            if (rowsAffected > 0)
+            {
+                //sends an email notification if someone other than original poster deletes post
+                /*if (postUid != sessionId)
                 {
-                    sqlCommand.ExecuteNonQuery();
-                }
-                catch (Exception e)
-                {
-                }
+                    string sqlSelect = "SELECT email FROM users WHERE id = '" + postUid + "' AND receive_notifications = 1";
+
+                    MySqlCommand sqlCommand = new MySqlCommand(sqlSelect, sqlConnection);
+
+                    object email = sqlCommand.ExecuteScalar();
+                    if (email != null || email != DBNull.Value)
+                    {
+                        DeletedCommentEmail(email.ToString());
+                    }
+                }*/ //commented out because unsure how to test email function
                 sqlConnection.Close();
+                return "Success";
+            }
+            else
+            {
+                sqlConnection.Close();
+                return "Failed to delete comment.";
             }
         }
 
+        private void DeletedCommentEmail(string email)
+        {
+            try
+            {
+                MailMessage mail = new MailMessage();
+                SmtpClient smtpServer = new SmtpClient("smtp.yourserver.com");
+                mail.From = new MailAddress("no-reply@yourcompany.com");
+                mail.To.Add(email);
+                mail.Subject = "Your Post Has Been Removed.";
+                mail.Body = "Your post has been removed in accordance with our guidelines.";
+                smtpServer.Port = 587;
+                smtpServer.Credentials = new System.Net.NetworkCredential("your_email@yourcompany.com", "yourpassword");
+                smtpServer.EnableSsl = true;
+                smtpServer.Send(mail);
+            }
+            catch (Exception ex)
+            {
+                // Log error
+            }
+
+        }
 
         [WebMethod(EnableSession = true)]
         public void SetNotificationPreference(int userId, bool enableNotifications)
@@ -345,7 +507,7 @@ namespace ProjectTemplate
             }
         }
 
-        
+
         [WebMethod(EnableSession = true)]
         public void SendWeeklyFeedbackReminders()
         {
@@ -396,5 +558,229 @@ namespace ProjectTemplate
             }
 
         }
+
+        [WebMethod(EnableSession = true)]
+        public void PostVotes(string userId, string postId, int voteType)
+        {
+
+
+            using (MySqlConnection sqlConnection = new MySqlConnection(getConString()))
+            {
+                sqlConnection.Open();
+
+                // Ensure correct character encoding
+                using (MySqlCommand setNamesCmd = new MySqlCommand("SET NAMES utf8mb4;", sqlConnection))
+                {
+                    setNamesCmd.ExecuteNonQuery();
+                }
+
+                // Check if the user has already voted on this post
+                string checkVote = "SELECT vote_type FROM votes WHERE userid = @userId AND post_id = @postId";
+                using (MySqlCommand sqlSelect = new MySqlCommand(checkVote, sqlConnection))
+                {
+                    sqlSelect.Parameters.AddWithValue("@userId", userId);
+                    sqlSelect.Parameters.AddWithValue("@postId", Convert.ToInt32(postId));
+                    sqlSelect.Parameters.AddWithValue("@voteType", voteType);
+
+
+                    object existingVoteObj = sqlSelect.ExecuteScalar();
+
+                    if (existingVoteObj != null)
+                    {
+                        int existingVote = Convert.ToInt32(existingVoteObj);
+                        if (existingVote != voteType)
+                        {
+                            // Update existing vote
+                            string updateQuery = "UPDATE votes SET vote_type = @voteType WHERE userid = @userId AND post_id = @postId";
+                            using (MySqlCommand updateCmd = new MySqlCommand(updateQuery, sqlConnection))
+                            {
+                                updateCmd.Parameters.AddWithValue("@voteType", voteType);
+                                updateCmd.Parameters.AddWithValue("@userId", userId);
+                                updateCmd.Parameters.AddWithValue("@postId", Convert.ToInt32(postId));
+                                updateCmd.ExecuteNonQuery();
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Insert new vote
+                        string insertVote = "INSERT INTO votes (userid, post_id, vote_type) VALUES (@userId, @postId, @voteType)";
+                        using (MySqlCommand sqlInsert = new MySqlCommand(insertVote, sqlConnection))
+                        {
+                            sqlInsert.Parameters.AddWithValue("@userId", userId);
+                            sqlInsert.Parameters.AddWithValue("@postId", Convert.ToInt32(postId));
+                            sqlInsert.Parameters.AddWithValue("@voteType", voteType);
+                            sqlInsert.ExecuteNonQuery();
+                        }
+                    }
+
+
+
+
+                }
+
+            }
+
+        }
+
+
+        [WebMethod(EnableSession = true)]
+        public string GetStreak(string userId)
+        {
+            try
+            {
+
+
+                using (MySqlConnection con = new MySqlConnection(getConString()))
+                {
+                    con.Open();
+                    string query = "SELECT streakCount, lastPostDate FROM streak WHERE userId = @userId";
+                    MySqlCommand cmd = new MySqlCommand(query, con);
+                    cmd.Parameters.AddWithValue("@userId", userId);
+
+                    MySqlDataAdapter adapter = new MySqlDataAdapter(cmd);
+                    DataTable table = new DataTable();
+                    adapter.Fill(table);
+
+                    if (table.Rows.Count > 0)
+                    {
+                        int streakCount = Convert.ToInt32(table.Rows[0]["streakCount"]);
+                        DateTime lastPostDate = Convert.ToDateTime(table.Rows[0]["lastPostDate"]);
+                        return $"{streakCount},{lastPostDate:yyyy-MM-dd}"; // Return streak count and last post date
+                    }
+                    else
+                    {
+                        return "0,No previous posts"; // No streak data found for user
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                return "Error: " + e.Message;
+            }
+        }
+
+        // WebMethod to update the streak
+        [WebMethod(EnableSession = true)]
+        public string UpdateStreak(int streakCount, string lastPostDate, string userId)
+        {
+            try
+            {
+
+                using (MySqlConnection con = new MySqlConnection(getConString()))
+                {
+                    con.Open();
+                    string query;
+
+                    // Check if the user already has a streak record
+                    string checkQuery = "SELECT COUNT(*) FROM streak WHERE userId = @userId";
+                    MySqlCommand checkCmd = new MySqlCommand(checkQuery, con);
+                    checkCmd.Parameters.AddWithValue("@userId", userId);
+                    int recordExists = Convert.ToInt32(checkCmd.ExecuteScalar());
+
+                    if (recordExists > 0)
+                    {
+                        query = "UPDATE streak SET streakCount = @streakCount, lastPostDate = @lastPostDate WHERE userId = @userId";
+                    }
+                    else
+                    {
+
+                        query = "INSERT INTO streak (userId, streakCount, lastPostDate) VALUES (@userId, @streakCount, @lastPostDate)";
+                    }
+
+                    MySqlCommand cmd = new MySqlCommand(query, con);
+                    cmd.Parameters.AddWithValue("@userId", userId);
+                    cmd.Parameters.AddWithValue("@streakCount", streakCount);
+                    cmd.Parameters.AddWithValue("@lastPostDate", DateTime.Parse(lastPostDate));
+
+                    cmd.ExecuteNonQuery();
+                    return "Streak updated successfully!";
+                }
+            }
+            catch (Exception e)
+            {
+                return "Error: " + e.Message;
+            }
+        }
+
+        [WebMethod(EnableSession = true)]
+        public string SetStatus(int postId, string newStatus)
+        {
+            Boolean isAdmin = Convert.ToBoolean(Session["admin"]);
+
+            if (Session["admin"] == null || !isAdmin)
+            {
+                return "Unauthorized. Admin access required.";
+            }
+
+            string[] validStatuses = { "unreviewed","reviewed", "in progress", "resolved" };
+            if (!validStatuses.Contains(newStatus.ToLower()))
+            {
+                return "Invalid status.";
+            }
+
+            try
+            {
+                using (MySqlConnection con = new MySqlConnection(getConString()))
+                {
+                    con.Open();
+                    string sqlQuery = "UPDATE posts SET review_status = @status WHERE post_id = @postId";
+                    using (MySqlCommand cmd = new MySqlCommand(sqlQuery, con))
+                    {
+                        cmd.Parameters.AddWithValue("@postId", postId);
+                        cmd.Parameters.AddWithValue("@status", newStatus);
+                        int rowsAffected = cmd.ExecuteNonQuery();
+
+                        if (rowsAffected > 0)
+                        {
+                            return "Success: Status updated.";
+                        }
+                        else
+                        {
+                            return "Error: Post not found.";
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log the error
+                return "Error: " + ex.Message;
+            }
+        }
+
+        [WebMethod(EnableSession = true)]
+        public string GetStatus(int postId)
+        {
+            try
+            {
+                using (MySqlConnection con = new MySqlConnection(getConString()))
+                {
+                    con.Open();
+                    string sqlQuery = "SELECT review_status FROM posts WHERE post_id = @postId";
+                    using (MySqlCommand cmd = new MySqlCommand(sqlQuery, con))
+                    {
+                        cmd.Parameters.AddWithValue("@postId", postId);
+
+                        object result = cmd.ExecuteScalar();
+                        if (result == null || result == DBNull.Value)
+                        {
+                            return "null";
+                        }
+                        else
+                        {
+                            string status = result.ToString();
+                            return status;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log the error
+                return "Error: " + ex.Message;
+            }
+        }
+
     }
 }
