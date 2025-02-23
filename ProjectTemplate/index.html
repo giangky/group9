@@ -205,34 +205,48 @@
                         for (var i = 0; i < postsArray.length; i++) {
                             // Generate HTML content for each post
                             var post = `
-                                <div class='postRow' id='post${postsArray[i].postId}'>
-                                    <h3>${postsArray[i].title}</h3> <span id='status'>${postsArray[i].status}</span>
-                                    <p class='postUser'>Posted by: ${postsArray[i].userId}</p>
-                                    <p class='post-text'>${postsArray[i].content}</p>
-                                    <div class='post-footer'>
-                                        
-                                        <div class='vote-buttons'>
-                                            <button class='upvote-button' onclick='votePost(${postsArray[i].postId}, 1)'>
-                                                <img src='Images/Like.png' alt='Upvote' class='upvote-icon'>
-                                            </button>
-                                             <span id='upvoteCount-${postsArray[i].postId}' class='vote-count'>${postsArray[i].upvoteCount}</span>
-                                            <button class='downvote-button' onclick='votePost(${postsArray[i].postId}, -1)'>
-                                                <img src='Images/Dislike.png' alt='Downvote' class='downvote-icon'>
-                                            </button>
-                                            <span id='downvoteCount-${postsArray[i].postId}' class='vote-count'>${postsArray[i].downvoteCount}</span>
-                                        </div>
-                                        <div class='postOptions'>
-                                            <button onclick='EditPost(${postsArray[i].postId})'>Edit</button>
-                                            <button class='delete-btn' onclick='DeletePost(${postsArray[i].postId})'>Delete</button>
-                                        </div>
-                                    </div>
-                                    <hr>
-                                </div>
-                            `;
+                        <div class='postRow' id='post${postsArray[i].postId}'>
+                            <h3>${postsArray[i].title}</h3>
+                            <span id='status'>${postsArray[i].status}</span>
+                            <p class='postUser'>Posted by: ${postsArray[i].userId}</p>
+                            <p class='post-text'>${postsArray[i].content}</p>
+
+                            <!-- Vote buttons -->
+                            <div class='vote-buttons'>
+                                <button class='upvote-button' onclick='votePost(${postsArray[i].postId}, 1)'>
+                                    <img src='Images/Like.png' alt='Upvote' class='upvote-icon'>
+                                </button>
+                                <span id='upvoteCount-${postsArray[i].postId}' class='vote-count'>${postsArray[i].upvoteCount}</span>
+                                <button class='downvote-button' onclick='votePost(${postsArray[i].postId}, -1)'>
+                                    <img src='Images/Dislike.png' alt='Downvote' class='downvote-icon'>
+                                </button>
+                                <span id='downvoteCount-${postsArray[i].postId}' class='vote-count'>${postsArray[i].downvoteCount}</span>
+                            </div>
+
+                            <!-- Post options (Edit and Delete buttons) -->
+                            <div class='postOptions'>
+                                <button class='edit-btn' id='editBtn${postsArray[i].postId}'>Edit</button>
+                                <button class='delete-btn' id='deleteBtn${postsArray[i].postId}'>Delete</button>
+                            </div>
+
+                            <hr>
+                        </div>
+                    `;
 
                             // Append each post to the container
                             $("#postsContainer").append(post);
                         }
+
+                        // Add event listeners for Edit and Delete buttons after posts are rendered
+                        $(".edit-btn").on("click", function () {
+                            var postId = $(this).attr("id").replace("editBtn", "");
+                            EditPost(postId);
+                        });
+
+                        $(".delete-btn").on("click", function () {
+                            var postId = $(this).attr("id").replace("deleteBtn", "");
+                            DeletePost(postId);
+                        });
                     } else {
                         $("#postsContainer").append("<p>No posts available at the moment.</p>");
                     }
@@ -259,8 +273,91 @@
             });
         }
 
+        function EditPost(postId) {
+            // Open an edit form for the post
+            var postContent = $(`#post${postId} .post-text`).text();
+            $(`#post${postId} .post-text`).html(`
+        <textarea id="editPostContent-${postId}">${postContent}</textarea>
+        <button onclick="savePostEdit(${postId})">Save</button>
+        <button onclick="cancelPostEdit(${postId})">Cancel</button>
+    `);
+        }
+        function savePostEdit(postId) {
+            var updatedContent = $(`#editPostContent-${postId}`).val(); // Get the updated content
 
-        // Function to delete a post with confirmation dialogue
+            var webMethod = "ProjectServices.asmx/EditPost";
+            var parameters = JSON.stringify({
+                postId: postId,
+                newContent: updatedContent
+            });
+
+            $.ajax({
+                type: "POST",
+                url: webMethod,
+                data: parameters,
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (msg) {
+                    alert(msg.d); // Show success or error message
+                    GetPosts(); // Refresh posts after editing
+                },
+                error: function (e) {
+                    alert("Error saving post: " + e.responseText);
+                }
+            });
+        }
+
+        function GetComments(postId) {
+            var webMethod = "ProjectServices.asmx/GetComments";
+            var parameters = JSON.stringify({ postId: postId });
+
+            $.ajax({
+                type: "POST",
+                url: webMethod,
+                data: parameters,
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (msg) {
+                    var commentsContainer = $(`#commentsContainer-${postId}`);
+                    commentsContainer.empty(); // Clear existing comments
+
+                    if (msg.d.length > 0) {
+                        var comments = msg.d;
+                        for (var i = 0; i < comments.length; i++) {
+                            var comment = comments[i];
+
+                            // Create the comment HTML
+                            var commentHtml = `
+                        <div class="comment" id="comment-${postId}-${i}">
+                            <p>${comment.content}</p>
+                            ${comment.isAnonymous ? "" : `<p class="comment-user">Posted by: ${comment.userId}</p>`}
+                            ${comment.userId === sessionStorage.getItem('userId') ? `
+                                <button onclick="openEditForm(${postId}, ${i}, '${comment.content}')">Edit</button>
+                                <button onclick="deleteComment(${postId}, ${i})">Delete</button>
+                            ` : ""}
+                        </div>
+                        <div id="editForm-${postId}-${i}" style="display: none;">
+                            <textarea id="editContent-${postId}-${i}">${comment.content}</textarea>
+                            <button onclick="saveEdit(${postId}, ${i}, '${comment.userId}')">Save</button>
+                            <button onclick="cancelEdit(${postId}, ${i})">Cancel</button>
+                        </div>
+                        <hr>
+                    `;
+
+                            // Append the comment to the container
+                            commentsContainer.append(commentHtml);
+                        }
+                    } else {
+                        commentsContainer.append("<p>No comments available.</p>");
+                    }
+                },
+                error: function (e) {
+                    alert("Error fetching comments: " + e.responseText);
+                }
+            });
+        }
+
+        //// Function to delete a post with confirmation dialogue
         function DeletePost(postId) {
             
             let confirmDelete = confirm("Are you sure you want to delete this comment?");

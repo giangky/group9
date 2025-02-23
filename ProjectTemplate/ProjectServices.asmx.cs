@@ -351,45 +351,60 @@ namespace ProjectTemplate
 
         //allows original poster to edit their own post
         [WebMethod(EnableSession = true)]
-        public String EditComment(string postId, string content)
+        public string EditPost(int postId, string newContent)
         {
+            // Check if the user is logged in
             if (Session["uid"] == null)
             {
-                return "Unauthorized bc null";
+                return "Unauthorized: User not logged in.";
             }
 
             string userId = Session["uid"].ToString();
 
-            string checkQuery = "SELECT userid FROM posts WHERE post_id = @postId";
-
-            MySqlConnection sqlConnection = new MySqlConnection(getConString());
-            MySqlCommand checkCommand = new MySqlCommand(checkQuery, sqlConnection);
-
-            checkCommand.Parameters.AddWithValue("@postId", HttpUtility.UrlDecode(postId));
-            sqlConnection.Open();
-            object result = checkCommand.ExecuteScalar();
-            if (result == null || result == DBNull.Value)
+            try
             {
-                return "Comment not found.";
+                using (MySqlConnection con = new MySqlConnection(getConString()))
+                {
+                    con.Open();
+
+                    // Check if the post belongs to the logged-in user
+                    string checkQuery = "SELECT userid FROM posts WHERE post_id = @postId";
+                    MySqlCommand checkCmd = new MySqlCommand(checkQuery, con);
+                    checkCmd.Parameters.AddWithValue("@postId", postId);
+
+                    object result = checkCmd.ExecuteScalar();
+                    if (result == null || result == DBNull.Value)
+                    {
+                        return "Error: Post not found.";
+                    }
+
+                    string postUserId = result.ToString();
+                    if (postUserId != userId)
+                    {
+                        return "Unauthorized: You can only edit your own posts.";
+                    }
+
+                    // Update the post content
+                    string updateQuery = "UPDATE posts SET content = @newContent WHERE post_id = @postId";
+                    MySqlCommand updateCmd = new MySqlCommand(updateQuery, con);
+                    updateCmd.Parameters.AddWithValue("@newContent", HttpUtility.UrlDecode(newContent));
+                    updateCmd.Parameters.AddWithValue("@postId", postId);
+
+                    int rowsAffected = updateCmd.ExecuteNonQuery();
+                    if (rowsAffected > 0)
+                    {
+                        return "Success: Post updated.";
+                    }
+                    else
+                    {
+                        return "Error: Failed to update post.";
+                    }
+                }
             }
-
-            string postUid = result.ToString();
-
-            if (postUid != userId)
+            catch (Exception ex)
             {
-                return "Unauthorized.";
+                return "Error: " + ex.Message;
             }
-
-            string updateQuery = "UPDATE posts SET content=@contentValue WHERE post_id=@idValue";
-            MySqlCommand updateCommand = new MySqlCommand(updateQuery, sqlConnection);
-
-            updateCommand.Parameters.AddWithValue("@idValue", HttpUtility.UrlDecode(postId));
-            updateCommand.Parameters.AddWithValue("@contentValue", HttpUtility.UrlDecode(content));
-
-            int rowsAffected = updateCommand.ExecuteNonQuery();
-            sqlConnection.Close();
-            return rowsAffected > 0 ? "Success" : "Failed";
-
         }
 
         //allows admin or original poster to delete a comment
