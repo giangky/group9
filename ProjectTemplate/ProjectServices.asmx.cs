@@ -160,7 +160,7 @@ namespace ProjectTemplate
                                LEFT JOIN votes v ON p.post_id = v.post_id
                                GROUP BY p.post_id, p.title, p.content, p.userid, a.admin, p.created_at
                                ORDER BY p.created_at DESC
-                               LIMIT 5";
+                               LIMIT 8";
 
             MySqlCommand sqlCommand = new MySqlCommand(sqlSelect, sqlConnection);
 
