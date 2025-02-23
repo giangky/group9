@@ -64,6 +64,8 @@
                         showPanel('feedbackPanel');
                         GetPosts();
 
+                        $(".feedbackPopup").show();
+
                         // Store the user ID in localStorage
                         sessionStorage.setItem('userId', userId);
                         sessionStorage.setItem("admin", msg.d.isAdmin);
@@ -958,7 +960,19 @@
             font-size: 14px;
             padding: 5px;
         }
-		
+
+        .feedbackPopup {
+            display: none;
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #f5c6cb;
+            border-radius: 5px;
+            text-align: center;
+            font-weight: bold;
+        }
+
 	</style>
 	<!--END OF YOUR OWN CSS-->
 </head>
@@ -994,8 +1008,12 @@
             <span id="loggedInUser"></span>
             <button id="logOutButton" onclick="logOut()">Log Out</button>
             <div id="streakDisplay"></div>
-
         </div>
+
+        <div class="feedbackPopup">
+            <p>Don't forget to engage! Provide feedback on posts to help improve our community.</p>
+        </div>
+
 
         <!--Weekly Question-->
         <div class="weeklyQuestion">
@@ -1004,6 +1022,9 @@
             </div>
             <span id="resultText"></span>
         </div>
+
+
+
 
         <h1>Feedback Dashboard</h1>
         <div class="button-container">
