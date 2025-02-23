@@ -517,7 +517,48 @@
             showPanel("logonPanel");
 
         });
-        
+
+        // Function to filter feedback by time range
+        function filterFeedbackByDate() {
+            const startDate = new Date(document.getElementById('startDate').value);
+            const endDate = new Date(document.getElementById('endDate').value);
+
+            if (!startDate || !endDate) {
+                alert("Please select both start and end dates.");
+                return;
+            }
+
+            // Filter feedback data by time range
+            const filteredData = feedbackData.filter(feedback => {
+                const feedbackDate = new Date(feedback.timestamp);
+                return feedbackDate >= startDate && feedbackDate <= endDate;
+            });
+
+            // Display filtered feedback
+            displayFilteredFeedback(filteredData);
+        }
+
+        // Function to display filtered feedback in the UI
+        function displayFilteredFeedback(filteredData) {
+            const feedbackContainer = document.getElementById('feedbackContainer');
+            feedbackContainer.innerHTML = ''; // Clear existing feedback
+
+            if (filteredData.length === 0) {
+                feedbackContainer.innerHTML = "<p>No feedback found for the selected time range.</p>";
+                return;
+            }
+
+            filteredData.forEach(feedback => {
+                const feedbackItem = document.createElement('div');
+                feedbackItem.className = 'feedback-item';
+                feedbackItem.innerHTML = `
+            <p><strong>Date:</strong> ${new Date(feedback.timestamp).toLocaleDateString()}</p>
+            <p><strong>Message:</strong> ${feedback.message}</p>
+        `;
+                feedbackContainer.appendChild(feedbackItem);
+            });
+        }
+      
 	</script>
 	<!--END OF YOUR OWN JAVASCRIPT-->
 
@@ -825,7 +866,7 @@
 
     <!--Post Suggestion Form-->
     <div id="feedbackPanel" class="container">
-        
+
         <!-- User Info Display -->
         <div id="userInfo">
             <!-- Manager Dashboard Link (only visible for admin users) -->
@@ -877,7 +918,7 @@
     <!-- Manager Dashboard Panel (initially hidden) -->
     <div id="managerDashboardPanel" class="container">
         <h1>Manager Dashboard</h1>
-        
+
         <!-- User Info Display -->
         <div id="managerUserInfo">
             <!-- Feedback Dashboard Link return -->
@@ -888,6 +929,21 @@
             <span id="loggedInUser"></span>
             <button id="logOutButton" onclick="logOut()">Log Out</button>
 
+        </div>
+
+        <button onclick="goBackToPostForm()">Go Back</button>
+
+        <div id="timeRangeFilter">
+            <h2>Filter Feedback by Time Range</h2>
+            <div>
+                <label for="startDate">Start Date:</label>
+                <input type="date" id="startDate">
+
+                <label for="endDate">End Date:</label>
+                <input type="date" id="endDate">
+
+                <button onclick="filterFeedbackByDate()">Filter Feedback</button>
+            </div>
         </div>
         <!-- Add manager-specific content here -->
         <div id="feedbackContainer"></div>
