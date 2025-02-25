@@ -258,11 +258,17 @@
                         $("#postsContainer").empty();
 
                         for (var i = 0; i < postsArray.length; i++) {
+                            if (postsArray[i].status && postsArray[i].status !== "Unreviewed") {
+                                status = `<span id = 'status'> ${postsArray[i].status}</span>`;
+                            } else {
+                                status = "";
+                            }
+
                             // Generate HTML content for each post
                             var post = `
                         <div class='postRow' id='post${postsArray[i].postId}'>
                             <h3>${postsArray[i].title}</h3>
-                            <span id='status'>${postsArray[i].status}</span>
+                            ${status}
                             <p class='postUser'>Posted by: ${postsArray[i].userId}</p>
                             <p class='post-text'>${postsArray[i].content}</p>
 
@@ -498,10 +504,21 @@
                         $("#feedbackContainer").empty();
 
                         for (var i = 0; i < feedbackArray.length; i++) {
+                            const currentStatus = feedbackArray[i].status ? feedbackArray[i].status : "Unreviewed";
+
+                            const statusDropdown = `
+                            <select id="dropdown" onchange="updateStatus(${feedbackArray[i].postId}, this.value)">
+                                <option value="Unreviewed" ${currentStatus === "Unreviewed" ? "selected" : ""}>Unreviewed</option>
+                                <option value="Reviewed" ${currentStatus === "Reviewed" ? "selected" : ""}>Reviewed</option>
+                                <option value="In Progress" ${currentStatus === "In Progress" ? "selected" : ""}>In Progress</option>
+                                <option value="Resolved" ${currentStatus === "Resolved" ? "selected" : ""}>Resolved</option>
+                            </select>
+                            `
                             
                             var feedback = `
                                 <div class='postRow' id='post${feedbackArray[i].postId}'>
                                     <h3>${feedbackArray[i].title}</h3>
+                                    ${statusDropdown}
                                     <p class='postUser'>Posted by: ${feedbackArray[i].userId}</p>
                                     <p>${feedbackArray[i].content}</p>
                                     <div class='post-footer' id="feedback">
@@ -523,6 +540,30 @@
                 },
                 error: function (e) {
                     alert("Error fetching posts");
+                }
+            });
+        }
+
+        // Update post status
+        function updateStatus(postId, newStatus) {
+            if (!newStatus) return; // Ignore if no change
+
+            $.ajax({
+                type: "POST",
+                url: "ProjectServices.asmx/SetStatus",
+                data: JSON.stringify({ postId: postId, newStatus: newStatus }),
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (response) {
+                    if (response.d === "Success") {
+                        alert("Status updated successfully!");
+                        managerFeedback(); // Reload to show updated status
+                    } else {
+                        alert("Failed to update status: " + response.d);
+                    }
+                },
+                error: function (xhr, status, error) {
+                    console.error("Error updating status:", error);
                 }
             });
         }
@@ -882,9 +923,8 @@
             align-items: center;
             border: 1px solid gray;
             border-radius: 7px;
-            padding-left: 10px;
-            padding-right: 10px;
             font-size: 20px;
+            padding: 12px;
          }
          .title {
             font-size: 27px;
@@ -1069,6 +1109,16 @@
             text-align: center;
             font-weight: bold;
         }
+
+        #dropdown {
+            float: right;
+            color: darkgreen;
+            margin-top: 0px;
+            border-radius: 3px;
+            font-size: 14px;
+            padding: 5px;
+        }
+
 
 	</style>
 	<!--END OF YOUR OWN CSS-->
