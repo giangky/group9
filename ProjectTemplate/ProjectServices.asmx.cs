@@ -394,7 +394,7 @@ namespace ProjectTemplate
                     int rowsAffected = updateCmd.ExecuteNonQuery();
                     if (rowsAffected > 0)
                     {
-                        return "Success: Post updated.";
+                        return "Successly updated post!";
                     }
                     else
                     {
