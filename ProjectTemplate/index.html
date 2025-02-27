@@ -429,7 +429,7 @@
             });
         }
 
-        //// Function to delete a post with confirmation dialogue
+        // Function to delete a post with confirmation dialogue
         function DeletePost(postId) {
 
             let confirmDelete = confirm("Are you sure you want to delete this comment?");
@@ -497,6 +497,7 @@
             });
         }
 
+        // Feedback displayed on the manager dashboard
         var feedbackArray;
         function managerFeedback() {
 
@@ -717,9 +718,8 @@
         }
 
         function getUserId() {
-            return localStorage.getItem('userId'); // Example: get from localStorage
+            return sessionStorage.getItem('userId'); // 
         }
-
 
         // Function to track post char limit
         function updateCharCount() {
@@ -740,6 +740,8 @@
                 console.log("No userId found in sessionStorage");
             }
             showPanel('managerDashboardPanel');
+            // Call the fetchDataAndRenderChart function to load the data and render the chart
+            fetchChartData();
             managerFeedback();
 
             $("#managerDashboardLink").css("display", "none");
@@ -1244,7 +1246,7 @@
 
         .container {
             width: 100%;
-            max-width: 800px;
+            max-width: 1200px;
             background-color: #ffffff;
             border-radius: 12px;
             padding: 30px;
@@ -1269,6 +1271,41 @@
             margin-bottom: 8px;
             color: #555;
             font-weight: 500;
+        }
+
+        .form-group {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+            .form-group label {
+                font-size: 1rem;
+                margin-right: 10px;
+                color: #555;
+                font-weight: 500;
+            }
+
+        #postTitle {
+            flex-grow: 1;
+            max-width: 50%; 
+            padding: 10px 20px;
+            font-size: 1rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+
+        /* Category dropdown style */
+        #postCategory {
+            width: 25%; /* Set a fixed width for the category dropdown */
+            padding: 12px 20px;
+            font-size: 1rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #f9f9f9;
         }
 
 
@@ -1358,6 +1395,15 @@
             width: 100%;
             max-height: 700px;
             overflow-y: auto;
+        }
+
+        #managerDashboardPanel {
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            background-color: #f4f4f4;
+            overflow: auto;
+            width: 100%;
         }
 
         #logonPanel {
@@ -1539,48 +1585,44 @@
 
         #dashboardContent {
             display: flex;
-            flex-wrap: nowrap; 
-            gap: 20px; 
+            flex-wrap: wrap;
+            gap: 20px;
             justify-content: space-between;
-            flex-direction: column;
-            margin-bottom: 40px; 
+            margin-top: 40px;
             width: 100%;
-            
+            box-sizing: border-box;
         }
 
         .chart-container {
-            flex: 1;
             width: 30%;
+            margin-bottom: 20px;
             height: 300px;
-            background-color: #ffffff;
-            border-radius: 12px;
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
             display: flex;
-            flex-direction: row;
-            padding: 20px;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            box-sizing: border-box;
+            flex-grow: 0;
+            flex-shrink: 0;
         }
 
+            .chart-container canvas {
+                width: 100%;
+                height: 300px;
+                background-color: #f9f9f9;
+                border: 1px solid #ddd;
+                max-height: 300px;
+            }
+
         .chart-buttons-container {
+            margin-top: 15px;
             display: flex;
             flex-direction: row;
             gap: 10px;
-            align-items: center;
-            justify-content: center; 
+            justify-content: center;
             margin-top: 10px;
         }
 
-
-        #feedbackSection {
-            margin-top: 40px;
-            background-color: #ffffff;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            width: 100%;
-        }
 
             #feedbackSection h2 {
                 margin-bottom: 20px;
@@ -1592,28 +1634,31 @@
             }
 
         #feedbackContainer {
-            margin-top: 20px;
+            margin-top: 40px;
         }
 
         #timeRangeFilter {
-            margin-bottom: 20px;
+            margin-top: 40px;
+            text-align: center;
         }
 
-            #timeRangeFilter input,
-            #timeRangeFilter button {
-                margin-right: 10px;
-                padding: 10px;
-                font-size: 1rem;
+            #timeRangeFilter input {
+                margin: 10px;
+                padding: 8px;
             }
 
-        .chart-buttons-container {
-            display: flex;
-            flex-direction: row;
-            gap: 10px;
-            align-items: center;
-            margin-top: 50px;
-        }
+            #timeRangeFilter button {
+                padding: 10px 20px;
+                cursor: pointer;
+                background-color: #007BFF;
+                color: white;
+                border: none;
+                border-radius: 5px;
+            }
 
+                #timeRangeFilter button:hover {
+                    background-color: #0056b3;
+                }
 
         .button-containers {
             display: flex;
@@ -1624,18 +1669,18 @@
         }
 
         .export-btn {
-            padding: 8px 15px;
-            font-size: 0.9rem;
-            background-color: #007BFF;
+            padding: 8px 16px;
+            margin: 5px 0;
+            cursor: pointer;
+            background-color: #4CAF50;
             color: white;
             border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background-color 0.3s ease-in-out;
+            border-radius: 5px;
+            width: 150px;
+            text-align: center;
         }
-
             .export-btn:hover {
-                background-color: #0056b3;
+                background-color: #45a049;
             }
 
             .export-btn:focus {
@@ -1723,6 +1768,8 @@
                 <label for="postContent">Post Content</label>
                 <textarea id="postContent" name="postContent" placeholder="Write your post content here" required maxlength="500" oninput="updateCharCount()"></textarea>
                 <p id="charCount">500 characters remaining</p>
+
+
 
                 <div class="button-containter">
                     <button type="submit">Submit Post</button>

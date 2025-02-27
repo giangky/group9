@@ -117,7 +117,7 @@ namespace ProjectTemplate
         public void CreatePost(string title, string content, string userId, string category)
         {
 
-            string sqlInsert = "INSERT into posts (title, content, userid, created_at, category) " +
+            string sqlInsert = "INSERT into posts (title, content, userid, category, created_at) " +
                 "values(@title, @content, @userId, @category, NOW());";
 
             MySqlConnection sqlConnection = new MySqlConnection(getConString());
@@ -507,6 +507,7 @@ namespace ProjectTemplate
                 sqlCommand.Parameters.AddWithValue("@userId", userId);
                 sqlConnection.Open();
                 sqlCommand.ExecuteNonQuery();
+
             }
         }
 
@@ -1009,8 +1010,8 @@ namespace ProjectTemplate
 
         }
 
+ 
+        }
 
-
-
-    }
 }
+
