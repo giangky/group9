@@ -59,16 +59,16 @@
                 dataType: "json",
                 success: function (msg) {
                     if (msg.d) {
-                        
+
+                        // Store the user ID in localStorage
+                        sessionStorage.setItem('userId', userId);
+                        sessionStorage.setItem("admin", msg.d.isAdmin);
+
                         //server replied true, so show the accounts panel
                         showPanel('feedbackPanel');
                         GetPosts();
 
                         $(".feedbackPopup").show();
-
-                        // Store the user ID in localStorage
-                        sessionStorage.setItem('userId', userId);
-                        sessionStorage.setItem("admin", msg.d.isAdmin);
 
                         // Store the user ID and display it
                         $("#loggedInUser").text("User: " + userId);
@@ -145,11 +145,12 @@
             });
         }
 
-        
-        // Function to show the post creation form
-        function showPostForm() {
-            document.getElementById('postFormContainer').style.display = 'block';
-        }
+        // Allows post creation form to be toggled closed
+        $(document).ready(function () {
+            $("#togglePostForm").click(function () {
+                $("#postFormContainer").slideToggle();
+            });
+        });
 
         // Function to handle the post submission
         function submitPost(event) {
@@ -242,6 +243,9 @@
         var postsArray;
         //Function to display posts made
         function GetPosts() {
+            const currentUserId = sessionStorage.getItem('userId'); // Current logged-in user
+            const isAdmin = sessionStorage.getItem('admin') === 'true';
+
             var webMethod = "ProjectServices.asmx/GetPosts";
             var parameters = "{}";
 
@@ -258,11 +262,25 @@
                         $("#postsContainer").empty();
 
                         for (var i = 0; i < postsArray.length; i++) {
+                            // Status only shows if its not null or unreviewed
                             if (postsArray[i].status && postsArray[i].status !== "Unreviewed") {
                                 status = `<span id = 'status'> ${postsArray[i].status}</span>`;
                             } else {
                                 status = "";
                             }
+
+                            // Edit and Delete buttons only appear for those with permissions
+                            let editButton = "";
+                            let deleteButton = "";
+
+                            // Check permissions to display buttons
+                            if (isAdmin || postsArray[i].userId === currentUserId) {
+                                if (postsArray[i].userId === currentUserId) {
+                                    editButton = `<button class='edit-btn' id='editBtn${postsArray[i].postId}'>Edit</button>`;
+                                }
+                                deleteButton = `<button class='delete-btn' id='deleteBtn${postsArray[i].postId}'>Delete</button>`;
+                            }
+
 
                             // Generate HTML content for each post
                             var post = `
@@ -286,8 +304,8 @@
 
                             <!-- Post options (Edit and Delete buttons) -->
                             <div class='postOptions'>
-                                <button class='edit-btn' id='editBtn${postsArray[i].postId}'>Edit</button>
-                                <button class='delete-btn' id='deleteBtn${postsArray[i].postId}'>Delete</button>
+                                ${editButton}
+                                ${deleteButton}
                             </div>
 
                             <hr>
@@ -336,12 +354,23 @@
 
         function EditPost(postId) {
             // Open an edit form for the post
-            var postContent = $(`#post${postId} .post-text`).text();
-            $(`#post${postId} .post-text`).html(`
-        <textarea id="editPostContent-${postId}">${postContent}</textarea>
-        <button onclick="savePostEdit(${postId})">Save</button>
-        <button onclick="cancelPostEdit(${postId})">Cancel</button>
-    `);
+            var postTextElement = $(`#post${postId} .post-text`)
+            var postContent = postTextElement.text();
+
+            // Check if edit form is already open
+            if (postTextElement.find("textarea").length > 0) {
+                // If open, restore the original content (close the form)
+                cancelPostEdit(postId);
+                return; // Exit the function
+            }
+
+            postTextElement.data("originalContent", postContent);
+
+            postTextElement.html(`
+                <textarea id="editPostContent-${postId}">${postContent}</textarea>
+                <button onclick="savePostEdit(${postId})">Save</button>
+                <button onclick="cancelPostEdit(${postId})">Cancel</button>
+            `);
         }
         function savePostEdit(postId) {
             var updatedContent = $(`#editPostContent-${postId}`).val(); // Get the updated content
@@ -366,6 +395,13 @@
                     alert("Error saving post: " + e.responseText);
                 }
             });
+        }
+
+        function cancelPostEdit(postId) {
+            var originalContent = $(`#post${postId} .post-text`).data("originalContent");
+
+            // Restore the original content
+            $(`#post${postId} .post-text`).html(originalContent);
         }
 
         function GetComments(postId) {
@@ -877,6 +913,7 @@
         textarea {
             resize: vertical;
             min-height: 150px;
+            font-family: system-ui;
         }
 
         .button-container {
@@ -1119,7 +1156,6 @@
             padding: 5px;
         }
 
-
 	</style>
 	<!--END OF YOUR OWN CSS-->
 </head>
@@ -1176,7 +1212,7 @@
 
         <h1>Feedback Dashboard</h1>
         <div class="button-container">
-            <button onclick="showPostForm()">Post Suggestion</button>
+            <button id="togglePostForm">Post Suggestion</button>
         </div>
 
         <div id="postFormContainer" style="display: none;">
