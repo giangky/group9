@@ -186,7 +186,7 @@ namespace ProjectTemplate
                     postId = sqlDt.Rows[i]["post_id"].ToString(),
                     upvoteCount = Convert.ToInt32(sqlDt.Rows[i]["upvoteCount"]),
                     downvoteCount = Convert.ToInt32(sqlDt.Rows[i]["downvoteCount"]),
-                    status = sqlDt.Rows[i]["review_status"] == DBNull.Value ? null : sqlDt.Rows[i]["review_status"].ToString(),
+                    status = sqlDt.Rows[i]["review_status"].ToString().ToUpperInvariant(),
                 });
 
             }
@@ -207,7 +207,7 @@ namespace ProjectTemplate
 
             //SQL query to select variables from table
             string sqlSelect = @"
-                               SELECT p.post_id, p.title,p.content,p.userid,a.admin,p.created_at,p.review_status,
+                               SELECT p.post_id, p.title,p.content,p.userid,a.admin,p.created_at,
                                COALESCE(SUM(CASE WHEN v.vote_type = 1 THEN 1 ELSE 0 END), 0) AS upvoteCount
                                FROM posts p
                                LEFT JOIN accounts a ON p.userid = a.userid
@@ -238,7 +238,6 @@ namespace ProjectTemplate
                     content = sqlDt.Rows[i]["content"].ToString(),
                     postId = sqlDt.Rows[i]["post_id"].ToString(),
                     upvoteCount = Convert.ToInt32(sqlDt.Rows[i]["upvoteCount"]),
-                    status = sqlDt.Rows[i]["review_status"] == DBNull.Value ? null : sqlDt.Rows[i]["review_status"].ToString(),
 
                 });
 
@@ -395,7 +394,7 @@ namespace ProjectTemplate
                     int rowsAffected = updateCmd.ExecuteNonQuery();
                     if (rowsAffected > 0)
                     {
-                        return "Successly updated post!";
+                        return "Success: Post updated.";
                     }
                     else
                     {
@@ -742,13 +741,8 @@ namespace ProjectTemplate
                 return "Unauthorized. Admin access required.";
             }
 
-<<<<<<< HEAD
-            string[] validStatuses = {"Unreviewed","Reviewed", "In Progress", "Resolved" };
-            if (!validStatuses.Contains(newStatus))
-=======
             string[] validStatuses = { "unreviewed", "reviewed", "in progress", "resolved" };
             if (!validStatuses.Contains(newStatus.ToLower()))
->>>>>>> commentingpost
             {
                 return "Invalid status.";
             }
@@ -767,7 +761,7 @@ namespace ProjectTemplate
 
                         if (rowsAffected > 0)
                         {
-                            return "Success";
+                            return "Success: Status updated.";
                         }
                         else
                         {
@@ -783,6 +777,38 @@ namespace ProjectTemplate
             }
         }
 
+        [WebMethod(EnableSession = true)]
+        public string GetStatus(int postId)
+        {
+            try
+            {
+                using (MySqlConnection con = new MySqlConnection(getConString()))
+                {
+                    con.Open();
+                    string sqlQuery = "SELECT review_status FROM posts WHERE post_id = @postId";
+                    using (MySqlCommand cmd = new MySqlCommand(sqlQuery, con))
+                    {
+                        cmd.Parameters.AddWithValue("@postId", postId);
+
+                        object result = cmd.ExecuteScalar();
+                        if (result == null || result == DBNull.Value)
+                        {
+                            return "null";
+                        }
+                        else
+                        {
+                            string status = result.ToString();
+                            return status;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log the error
+                return "Error: " + ex.Message;
+            }
+        }
 
         [WebMethod(EnableSession = true)]
         public string GetLastPostDate(string userId)

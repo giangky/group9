@@ -60,18 +60,15 @@
                 success: function (msg) {
                     if (msg.d) {
 
-<<<<<<< HEAD
-                        // Store the user ID in localStorage
-                        sessionStorage.setItem('userId', userId);
-                        sessionStorage.setItem("admin", msg.d.isAdmin);
-
-=======
->>>>>>> commentingpost
                         //server replied true, so show the accounts panel
                         showPanel('feedbackPanel');
                         GetPosts();
 
                         $(".feedbackPopup").show();
+
+                        // Store the user ID in localStorage
+                        sessionStorage.setItem('userId', userId);
+                        sessionStorage.setItem("admin", msg.d.isAdmin);
 
                         // Store the user ID and display it
                         $("#loggedInUser").text("User: " + userId);
@@ -148,20 +145,11 @@
             });
         }
 
-<<<<<<< HEAD
-        // Allows post creation form to be toggled closed
-        $(document).ready(function () {
-            $("#togglePostForm").click(function () {
-                $("#postFormContainer").slideToggle();
-            });
-        });
-=======
 
         // Function to show the post creation form
         function showPostForm() {
             document.getElementById('postFormContainer').style.display = 'block';
         }
->>>>>>> commentingpost
 
         // Function to handle the post submission
         function submitPost(event) {
@@ -254,9 +242,6 @@
         var postsArray;
         //Function to display posts made
         function GetPosts() {
-            const currentUserId = sessionStorage.getItem('userId'); // Current logged-in user
-            const isAdmin = sessionStorage.getItem('admin') === 'true';
-
             var webMethod = "ProjectServices.asmx/GetPosts";
             var parameters = "{}";
 
@@ -273,41 +258,13 @@
                         $("#postsContainer").empty(); // Clear the container before appending new posts
 
                         for (var i = 0; i < postsArray.length; i++) {
-                            // Status only shows if its not null or unreviewed
-                            if (postsArray[i].status && postsArray[i].status !== "Unreviewed") {
-                                status = `<span id = 'status'> ${postsArray[i].status}</span>`;
-                            } else {
-                                status = "";
-                            }
-
-                            // Edit and Delete buttons only appear for those with permissions
-                            let editButton = "";
-                            let deleteButton = "";
-
-                            // Check permissions to display buttons
-                            if (isAdmin || postsArray[i].userId === currentUserId) {
-                                if (postsArray[i].userId === currentUserId) {
-                                    editButton = `<button class='edit-btn' id='editBtn${postsArray[i].postId}'>Edit</button>`;
-                                }
-                                deleteButton = `<button class='delete-btn' id='deleteBtn${postsArray[i].postId}'>Delete</button>`;
-                            }
-
-
                             // Generate HTML content for each post
                             var post = `
-<<<<<<< HEAD
-                        <div class='postRow' id='post${postsArray[i].postId}'>
-                            <h3>${postsArray[i].title}</h3>
-                            ${status}
-                            <p class='postUser'>Posted by: ${postsArray[i].userId}</p>
-                            <p class='post-text'>${postsArray[i].content}</p>
-=======
                             <div class='postRow' id='post${postsArray[i].postId}'>
                                 <h3>${postsArray[i].title}</h3>
                                 <span id='status'>${postsArray[i].status}</span>
                                 <p class='postUser'>Posted by: ${postsArray[i].userId}</p>
                                 <p class='post-text'>${postsArray[i].content}</p>
->>>>>>> commentingpost
 
                                 <!-- Vote buttons -->
                                 <div class='vote-buttons'>
@@ -339,20 +296,7 @@
 
                                 <hr>
                             </div>
-<<<<<<< HEAD
-
-                            <!-- Post options (Edit and Delete buttons) -->
-                            <div class='postOptions'>
-                                ${editButton}
-                                ${deleteButton}
-                            </div>
-
-                            <hr>
-                        </div>
-                    `;
-=======
                         `;
->>>>>>> commentingpost
 
                             // Append each post to the container
                             $("#postsContainer").append(post);
@@ -399,32 +343,12 @@
 
         function EditPost(postId) {
             // Open an edit form for the post
-<<<<<<< HEAD
-            var postTextElement = $(`#post${postId} .post-text`)
-            var postContent = postTextElement.text();
-
-            // Check if edit form is already open
-            if (postTextElement.find("textarea").length > 0) {
-                // If open, restore the original content (close the form)
-                cancelPostEdit(postId);
-                return; // Exit the function
-            }
-
-            postTextElement.data("originalContent", postContent);
-
-            postTextElement.html(`
-                <textarea id="editPostContent-${postId}">${postContent}</textarea>
-                <button onclick="savePostEdit(${postId})">Save</button>
-                <button onclick="cancelPostEdit(${postId})">Cancel</button>
-            `);
-=======
             var postContent = $(`#post${postId} .post-text`).text();
             $(`#post${postId} .post-text`).html(`
             <textarea id="editPostContent-${postId}">${postContent}</textarea>
             <button onclick="savePostEdit(${postId})">Save</button>
 
         `);
->>>>>>> commentingpost
         }
         function savePostEdit(postId) {
             var updatedContent = $(`#editPostContent-${postId}`).val(); // Get the updated content
@@ -449,13 +373,6 @@
                     alert("Error saving post: " + e.responseText);
                 }
             });
-        }
-
-        function cancelPostEdit(postId) {
-            var originalContent = $(`#post${postId} .post-text`).data("originalContent");
-
-            // Restore the original content
-            $(`#post${postId} .post-text`).html(originalContent);
         }
 
         function GetComments(postId) {
@@ -653,28 +570,6 @@
                         $("#feedbackContainer").empty();
 
                         for (var i = 0; i < feedbackArray.length; i++) {
-<<<<<<< HEAD
-                            const currentStatus = feedbackArray[i].status ? feedbackArray[i].status : "Unreviewed";
-
-                            const statusDropdown = `
-                            <select id="dropdown" onchange="updateStatus(${feedbackArray[i].postId}, this.value)">
-                                <option value="Unreviewed" ${currentStatus === "Unreviewed" ? "selected" : ""}>Unreviewed</option>
-                                <option value="Reviewed" ${currentStatus === "Reviewed" ? "selected" : ""}>Reviewed</option>
-                                <option value="In Progress" ${currentStatus === "In Progress" ? "selected" : ""}>In Progress</option>
-                                <option value="Resolved" ${currentStatus === "Resolved" ? "selected" : ""}>Resolved</option>
-                            </select>
-                            `
-                            
-                            var feedback = `
-                                <div class='postRow' id='post${feedbackArray[i].postId}'>
-                                    <h3>${feedbackArray[i].title}</h3>
-                                    ${statusDropdown}
-                                    <p class='postUser'>Posted by: ${feedbackArray[i].userId}</p>
-                                    <p>${feedbackArray[i].content}</p>
-                                    <div class='post-footer' id="feedback">
-                                        <div class='post-upvote-count'>
-                                            Total Upvotes: <span id='upvoteCount-${feedbackArray[i].postId}'>${feedbackArray[i].upvoteCount}</span>
-=======
 
                             var feedback = `
                                     <div class='postRow' id='post${feedbackArray[i].postId}'>
@@ -685,7 +580,6 @@
                                             <div class='post-upvote-count'>
                                                 Total Upvotes: <span id='upvoteCount-${feedbackArray[i].postId}'>${feedbackArray[i].upvoteCount}</span>
                                             </div>
->>>>>>> commentingpost
                                         </div>
                                         <hr>
                                     </div>
@@ -701,30 +595,6 @@
                 },
                 error: function (e) {
                     alert("Error fetching posts");
-                }
-            });
-        }
-
-        // Update post status
-        function updateStatus(postId, newStatus) {
-            if (!newStatus) return; // Ignore if no change
-
-            $.ajax({
-                type: "POST",
-                url: "ProjectServices.asmx/SetStatus",
-                data: JSON.stringify({ postId: postId, newStatus: newStatus }),
-                contentType: "application/json; charset=utf-8",
-                dataType: "json",
-                success: function (response) {
-                    if (response.d === "Success") {
-                        alert("Status updated successfully!");
-                        managerFeedback(); // Reload to show updated status
-                    } else {
-                        alert("Failed to update status: " + response.d);
-                    }
-                },
-                error: function (xhr, status, error) {
-                    console.error("Error updating status:", error);
                 }
             });
         }
@@ -1037,7 +907,6 @@
         textarea {
             resize: vertical;
             min-height: 150px;
-            font-family: system-ui;
         }
 
         .button-container {
@@ -1084,16 +953,12 @@
             align-items: center;
             border: 1px solid gray;
             border-radius: 7px;
+            padding-left: 10px;
+            padding-right: 10px;
             font-size: 20px;
-<<<<<<< HEAD
-            padding: 12px;
-         }
-         .title {
-=======
         }
 
         .title {
->>>>>>> commentingpost
             font-size: 27px;
             font-weight: 520;
             padding-bottom: 6px;
@@ -1276,23 +1141,8 @@
             text-align: center;
             font-weight: bold;
         }
-<<<<<<< HEAD
-
-        #dropdown {
-            float: right;
-            color: darkgreen;
-            margin-top: 0px;
-            border-radius: 3px;
-            font-size: 14px;
-            padding: 5px;
-        }
-
-	</style>
-	<!--END OF YOUR OWN CSS-->
-=======
     </style>
     <!--END OF YOUR OWN CSS-->
->>>>>>> commentingpost
 </head>
 <body onload="GetQuestion()">
 
@@ -1347,7 +1197,7 @@
 
         <h1>Feedback Dashboard</h1>
         <div class="button-container">
-            <button id="togglePostForm">Post Suggestion</button>
+            <button onclick="showPostForm()">Post Suggestion</button>
         </div>
 
         <div id="postFormContainer" style="display: none;">
