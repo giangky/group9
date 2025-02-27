@@ -69,16 +69,15 @@
                 dataType: "json",
                 success: function (msg) {
                     if (msg.d) {
+                        // Store the user ID in localStorage
+                        sessionStorage.setItem('userId', userId);
+                        sessionStorage.setItem("admin", msg.d.isAdmin);
 
                         //server replied true, so show the accounts panel
                         showPanel('feedbackPanel');
                         GetPosts();
 
                         $(".feedbackPopup").show();
-
-                        // Store the user ID in localStorage
-                        sessionStorage.setItem('userId', userId);
-                        sessionStorage.setItem("admin", msg.d.isAdmin);
 
                         // Store the user ID and display it
                         $("#loggedInUser").text("User: " + userId);
@@ -155,11 +154,11 @@
             });
         }
 
-
-        // Function to show the post creation form
-        function showPostForm() {
-            document.getElementById('postFormContainer').style.display = 'block';
-        }
+        $(document).ready(function () {
+            $("#togglePostForm").click(function () {
+                $("#postFormContainer").slideToggle();
+            });
+        });
 
         // Function to handle the post submission
         function submitPost(event) {
@@ -253,6 +252,9 @@
         var postsArray;
         //Function to display posts made
         function GetPosts() {
+            const currentUserId = sessionStorage.getItem('userId'); // Current logged-in user
+            const isAdmin = sessionStorage.getItem('admin') === 'true';
+
             var webMethod = "ProjectServices.asmx/GetPosts";
             var parameters = "{}";
 
@@ -269,11 +271,30 @@
                         $("#postsContainer").empty(); // Clear the container before appending new posts
 
                         for (var i = 0; i < postsArray.length; i++) {
+                            // Status only shows if its not null or unreviewed
+                            if (postsArray[i].status && postsArray[i].status !== "Unreviewed") {
+                                status = `<span id = 'status'> ${postsArray[i].status}</span>`;
+                            } else {
+                                status = "";
+                            }
+
+                            // Edit and Delete buttons only appear for those with permissions
+                            let editButton = "";
+                            let deleteButton = "";
+
+                            // Check permissions to display buttons
+                            if (isAdmin || postsArray[i].userId === currentUserId) {
+                                if (postsArray[i].userId === currentUserId) {
+                                    editButton = `<button class='edit-btn' id='editBtn${postsArray[i].postId}'>Edit</button>`;
+                                }
+                                deleteButton = `<button class='delete-btn' id='deleteBtn${postsArray[i].postId}'>Delete</button>`;
+                            }
+
                             // Generate HTML content for each post
                             var post = `
                             <div class='postRow' id='post${postsArray[i].postId}'>
                                 <h3>${postsArray[i].title}</h3>
-                                <span id='status'>${postsArray[i].status}</span>
+                                ${status}
                                 <p class='postUser'>Posted by: ${postsArray[i].userId}</p>
                                 <p class='post-text'>${postsArray[i].content}</p>
 
@@ -291,8 +312,8 @@
 
                                 <!-- Post options (Edit and Delete buttons) -->
                                 <div class='postOptions'>
-                                    <button class='edit-btn' id='editBtn${postsArray[i].postId}'>Edit</button>
-                                    <button class='delete-btn' id='deleteBtn${postsArray[i].postId}'>Delete</button>
+                                    ${editButton}
+                                    ${deleteButton}
                                 </div>
 
                                 <!-- Comment Section -->
@@ -353,14 +374,25 @@
         }
 
         function EditPost(postId) {
-            // Open an edit form for the post
-            var postContent = $(`#post${postId} .post-text`).text();
-            $(`#post${postId} .post-text`).html(`
-            <textarea id="editPostContent-${postId}">${postContent}</textarea>
-            <button onclick="savePostEdit(${postId})">Save</button>
+            var postTextElement = $(`#post${postId} .post-text`)
+            var postContent = postTextElement.text();
 
-        `);
+            // Check if edit form is already open
+            if (postTextElement.find("textarea").length > 0) {
+                // If open, restore the original content (close the form)
+                cancelPostEdit(postId);
+                return; // Exit the function
+            }
+
+            postTextElement.data("originalContent", postContent);
+
+            postTextElement.html(`
+                <textarea id="editPostContent-${postId}">${postContent}</textarea>
+                <button onclick="savePostEdit(${postId})">Save</button>
+                <button onclick="cancelPostEdit(${postId})">Cancel</button>
+            `);
         }
+
         function savePostEdit(postId) {
             var updatedContent = $(`#editPostContent-${postId}`).val(); // Get the updated content
 
@@ -384,6 +416,12 @@
                     alert("Error saving post: " + e.responseText);
                 }
             });
+        }
+        function cancelPostEdit(postId) {
+            var originalContent = $(`#post${postId} .post-text`).data("originalContent");
+
+            // Restore the original content
+            $(`#post${postId} .post-text`).html(originalContent);
         }
 
         function GetComments(postId) {
@@ -582,6 +620,7 @@
                         $("#feedbackContainer").empty();
 
                         for (var i = 0; i < feedbackArray.length; i++) {
+
                             const currentStatus = feedbackArray[i].status ? feedbackArray[i].status : "Unreviewed";
 
                             const statusDropdown = `
@@ -618,6 +657,30 @@
                 },
                 error: function (e) {
                     alert("Error fetching posts");
+                }
+            });
+        }
+
+        // Update post status
+        function updateStatus(postId, newStatus) {
+            if (!newStatus) return; // Ignore if no change
+
+            $.ajax({
+                type: "POST",
+                url: "ProjectServices.asmx/SetStatus",
+                data: JSON.stringify({ postId: postId, newStatus: newStatus }),
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (response) {
+                    if (response.d === "Success") {
+                        alert("Status updated successfully!");
+                        managerFeedback(); // Reload to show updated status
+                    } else {
+                        alert("Failed to update status: " + response.d);
+                    }
+                },
+                error: function (xhr, status, error) {
+                    console.error("Error updating status:", error);
                 }
             });
         }
@@ -1373,6 +1436,7 @@
         textarea {
             resize: vertical;
             min-height: 150px;
+            font-family: system-ui;
         }
 
         .button-container {
@@ -1419,9 +1483,8 @@
             align-items: center;
             border: 1px solid gray;
             border-radius: 7px;
-            padding-left: 10px;
-            padding-right: 10px;
             font-size: 20px;
+            padding: 20px;
         }
 
         .title {
@@ -1477,6 +1540,7 @@
             flex-direction: row;
             align-items: center;
             gap: 20px;
+            z-index:1;
         }
 
         #loggedInUser {
@@ -1785,7 +1849,7 @@
 
         <h1>Feedback Dashboard</h1>
         <div class="button-container">
-            <button onclick="showPostForm()">Post Suggestion</button>
+            <button id="togglePostForm">Post Suggestion</button>
         </div>
 
         <div id="postFormContainer" style="display: none;">
@@ -1885,8 +1949,7 @@
             <!-- Add manager-specific content here -->
             <div id="feedbackContainer"></div>
         </div>
-
-
+    </div>
         <!--<button onclick="javascript: TestButtonHandler();">Click here to test connection!</button>-->
 </body>
 </html>
