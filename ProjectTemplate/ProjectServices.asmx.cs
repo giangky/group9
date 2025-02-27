@@ -15,6 +15,7 @@ using System.Runtime.Remoting.Contexts;
 using System.Data.SqlClient;
 using System.Net.Mail;
 using MySql.Data.MySqlClient.Authentication;
+using System.Web.Script.Services;
 
 namespace ProjectTemplate
 {
@@ -408,6 +409,33 @@ namespace ProjectTemplate
             }
         }
 
+        // submit comments
+        [WebMethod]
+        [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
+        public bool SubmitComment(int postId, string content, bool isAnonymous)
+        {
+            try
+            {
+                // Validate input
+                if (string.IsNullOrEmpty(content))
+                {
+                    throw new ArgumentException("Comment content cannot be empty.");
+                }
+
+                // Save the comment to the database
+                // Example: db.Comments.Add(new Comment { PostId = postId, Content = content, IsAnonymous = isAnonymous });
+                // db.SaveChanges();
+
+                return true; // Success
+            }
+            catch (Exception ex)
+            {
+                // Log the error
+                System.Diagnostics.Debug.WriteLine("Error submitting comment: " + ex.Message);
+                return false; // Failure
+            }
+        }
+
         //allows admin or original poster to delete a comment
         [WebMethod(EnableSession = true)]
         public string DeleteComment(string postId)
@@ -714,8 +742,13 @@ namespace ProjectTemplate
                 return "Unauthorized. Admin access required.";
             }
 
+<<<<<<< HEAD
             string[] validStatuses = {"Unreviewed","Reviewed", "In Progress", "Resolved" };
             if (!validStatuses.Contains(newStatus))
+=======
+            string[] validStatuses = { "unreviewed", "reviewed", "in progress", "resolved" };
+            if (!validStatuses.Contains(newStatus.ToLower()))
+>>>>>>> commentingpost
             {
                 return "Invalid status.";
             }
