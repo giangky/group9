@@ -15,6 +15,7 @@ using System.Runtime.Remoting.Contexts;
 using System.Data.SqlClient;
 using System.Net.Mail;
 using MySql.Data.MySqlClient.Authentication;
+using System.Web.Script.Serialization;
 using System.Web.Script.Services;
 
 namespace ProjectTemplate
@@ -114,11 +115,11 @@ namespace ProjectTemplate
         }
         //Insert query for creating a post
         [WebMethod(EnableSession = true)]
-        public void CreatePost(string title, string content, string userId)
+        public void CreatePost(string title, string content, string userId, string category)
         {
 
-            string sqlInsert = "INSERT into posts (title, content, userid, created_at) " +
-                "values(@title, @content, @userId, NOW());";
+            string sqlInsert = "INSERT into posts (title, content, userid, category, created_at) " +
+                "values(@title, @content, @userId, @category, NOW());";
 
             MySqlConnection sqlConnection = new MySqlConnection(getConString());
             MySqlCommand sqlCommand = new MySqlCommand(sqlInsert, sqlConnection);
@@ -126,6 +127,7 @@ namespace ProjectTemplate
             sqlCommand.Parameters.AddWithValue("@title", HttpUtility.UrlDecode(title));
             sqlCommand.Parameters.AddWithValue("@content", HttpUtility.UrlDecode(content));
             sqlCommand.Parameters.AddWithValue("@userId", userId);
+            sqlCommand.Parameters.AddWithValue("@category", category);
 
 
             sqlConnection.Open();
@@ -532,6 +534,7 @@ namespace ProjectTemplate
                 sqlCommand.Parameters.AddWithValue("@userId", userId);
                 sqlConnection.Open();
                 sqlCommand.ExecuteNonQuery();
+
             }
         }
 
@@ -921,7 +924,153 @@ namespace ProjectTemplate
             }
         }
 
+        // Get votes by category data 
+        [WebMethod(EnableSession = true)]
+        public string GetUpvoteData()
+        {
+
+            string sqlSelect = @"
+                       SELECT p.category,
+                       COALESCE(SUM(CASE WHEN v.vote_type = 1 THEN 1 ELSE 0 END), 0) AS upvoteCount
+                       FROM posts p
+                       LEFT JOIN votes v ON p.post_id = v.post_id
+                       GROUP BY p.category";
+
+            var feedbackData = new List<object>();
 
 
-    }
+            using (MySqlConnection conn = new MySqlConnection(getConString()))
+            {
+
+                //SQL query to select variables from table
+                using (MySqlCommand cmd = new MySqlCommand(sqlSelect, conn))
+                {
+
+                    conn.Open();
+
+                    using (MySqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            feedbackData.Add(new
+                            {
+
+                                upvoteCount = Convert.ToInt32(reader["upvoteCount"]),
+                                category = reader["category"].ToString(),
+
+
+                            });
+                        }
+
+                    }
+                }
+
+            }
+
+
+            //Convert list to JSON 
+            var json = new JavaScriptSerializer().Serialize(new { ChartInfo = feedbackData });
+            return json;
+        }
+
+        // Get total posts per category 
+        [WebMethod(EnableSession = true)]
+        public string GetCategoryData()
+        {
+
+            string sqlSelect = @"
+                       SELECT p.category,
+                       COUNT(p.post_id) AS totalPosts
+                       FROM posts p
+                       GROUP BY p.category";
+
+            var feedbackData = new List<object>();
+
+            using (MySqlConnection conn = new MySqlConnection(getConString()))
+            {
+
+                //SQL query to select variables from table
+                using (MySqlCommand cmd = new MySqlCommand(sqlSelect, conn))
+                {
+
+                    conn.Open();
+
+                    using (MySqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            feedbackData.Add(new
+                            {
+
+                                totalPosts = reader["totalPosts"].ToString(),
+                                category = reader["category"].ToString(),
+
+                            });
+                        }
+
+                    }
+                }
+
+            }
+
+            //Convert list to JSON 
+            var json = new JavaScriptSerializer().Serialize(new { ChartInfo = feedbackData });
+            return json;
+
+        }
+        // Total posts per category in last 6 months
+        [WebMethod(EnableSession = true)]
+        public string GetCategoryTimeData()
+        {
+
+            string sqlSelect = @"
+                        SELECT p.category,
+                        DATE_FORMAT(p.created_at, '%Y-%m') AS month,
+                        COUNT(p.post_id) AS totalPosts
+                        FROM posts p
+                        WHERE p.created_at >= CURDATE() - INTERVAL 6 MONTH
+                        GROUP BY p.category, month
+                        ORDER BY month DESC, p.category;";
+
+            var feedbackData = new List<object>();
+
+
+            using (MySqlConnection conn = new MySqlConnection(getConString()))
+            {
+
+                //SQL query to select variables from table
+                using (MySqlCommand cmd = new MySqlCommand(sqlSelect, conn))
+                {
+
+                    conn.Open();
+
+                    using (MySqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            feedbackData.Add(new
+                            {
+
+                                category = reader["category"].ToString(),
+                                month = reader["month"].ToString(),
+                                totalPosts = reader["totalPosts"].ToString(),
+
+                            });
+                        }
+
+                    }
+                }
+
+            }
+
+            //Convert list to JSON 
+            var json = new JavaScriptSerializer().Serialize(new { ChartInfo = feedbackData });
+            return json;
+
+        }
+
+ 
+        }
+
 }
+

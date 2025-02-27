@@ -5,9 +5,19 @@
     <title>Feedback Webpage</title>
     <!--DO NOT FORGET THIS SCRIPT TAG SO YOU CAN USE JQUERY!!!!!-->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
 
     <!--YOUR OWN JAVASCRIPT CAN GO RIGHT HERE-->
     <script type="text/javascript">
+        // Data arrays to be globally scoped so they can be accessed by export functions
+        let upvoteCategories = [];
+        let upvoteCountData = [];
+        let categoryCategories = [];
+        let categoryPosts = [];
+        let postsData = {};
+
         function TestButtonHandler() {
             var webMethod = "ProjectServices.asmx/TestConnection";
             var parameters = "{}";
@@ -158,6 +168,7 @@
             // Get the title and content of the post
             const title = document.getElementById('postTitle').value;
             const content = document.getElementById('postContent').value;
+            const category = document.getElementById('postCategory').value;
 
 
             // Extract the logged-in user ID from the displayed username
@@ -484,7 +495,7 @@
             });
         }
 
-        //// Function to delete a post with confirmation dialogue
+        // Function to delete a post with confirmation dialogue
         function DeletePost(postId) {
 
             let confirmDelete = confirm("Are you sure you want to delete this comment?");
@@ -552,6 +563,7 @@
             });
         }
 
+        // Feedback displayed on the manager dashboard
         var feedbackArray;
         function managerFeedback() {
 
@@ -570,20 +582,31 @@
                         $("#feedbackContainer").empty();
 
                         for (var i = 0; i < feedbackArray.length; i++) {
+                            const currentStatus = feedbackArray[i].status ? feedbackArray[i].status : "Unreviewed";
+
+                            const statusDropdown = `
+                                    <select id="dropdown" onchange="updateStatus(${feedbackArray[i].postId}, this.value)">
+                                        <option value="Unreviewed" ${currentStatus === "Unreviewed" ? "selected" : ""}>Unreviewed</option>
+                                        <option value="Reviewed" ${currentStatus === "Reviewed" ? "selected" : ""}>Reviewed</option>
+                                        <option value="In Progress" ${currentStatus === "In Progress" ? "selected" : ""}>In Progress</option>
+                                        <option value="Resolved" ${currentStatus === "Resolved" ? "selected" : ""}>Resolved</option>
+                                    </select>
+                                    `
 
                             var feedback = `
-                                    <div class='postRow' id='post${feedbackArray[i].postId}'>
-                                        <h3>${feedbackArray[i].title}</h3>
-                                        <p class='postUser'>Posted by: ${feedbackArray[i].userId}</p>
-                                        <p>${feedbackArray[i].content}</p>
-                                        <div class='post-footer' id="feedback">
-                                            <div class='post-upvote-count'>
-                                                Total Upvotes: <span id='upvoteCount-${feedbackArray[i].postId}'>${feedbackArray[i].upvoteCount}</span>
+                                        <div class='postRow' id='post${feedbackArray[i].postId}'>
+                                            <h3>${feedbackArray[i].title}</h3>
+                                            ${statusDropdown}
+                                            <p class='postUser'>Posted by: ${feedbackArray[i].userId}</p>
+                                            <p>${feedbackArray[i].content}</p>
+                                            <div class='post-footer' id="feedback">
+                                                <div class='post-upvote-count'>
+                                                    Total Upvotes: <span id='upvoteCount-${feedbackArray[i].postId}'>${feedbackArray[i].upvoteCount}</span>
+                                                </div>
                                             </div>
+                                            <hr>
                                         </div>
-                                        <hr>
-                                    </div>
-                                `;
+                                    `;
 
                             // Append each post to the container
                             $("#feedbackContainer").append(feedback);
@@ -737,9 +760,8 @@
         }
 
         function getUserId() {
-            return localStorage.getItem('userId'); // Example: get from localStorage
+            return sessionStorage.getItem('userId'); // 
         }
-
 
         // Function to track post char limit
         function updateCharCount() {
@@ -760,6 +782,8 @@
                 console.log("No userId found in sessionStorage");
             }
             showPanel('managerDashboardPanel');
+            // Call the fetchDataAndRenderChart function to load the data and render the chart
+            fetchChartData();
             managerFeedback();
 
             $("#managerDashboardLink").css("display", "none");
@@ -823,12 +847,419 @@
                 const feedbackItem = document.createElement('div');
                 feedbackItem.className = 'feedback-item';
                 feedbackItem.innerHTML = `
-                <p><strong>Date:</strong> ${new Date(feedback.timestamp).toLocaleDateString()}</p>
-                <p><strong>Message:</strong> ${feedback.message}</p>
-            `;
+                    <p><strong>Date:</strong> ${new Date(feedback.timestamp).toLocaleDateString()}</p>
+                    <p><strong>Message:</strong> ${feedback.message}</p>
+                `;
                 feedbackContainer.appendChild(feedbackItem);
             });
         }
+
+        let upvoteChartInstance = null;
+        // Create data chart for upvotes per catergory from fetched data
+        function upvoteChart(categories, upvoteCount) {
+
+            const ctx = document.getElementById("upvoteChart").getContext('2d');
+
+
+            if (ctx) {
+                const myChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: categories,
+                        datasets: [{
+                            label: 'Categories by Likes',
+                            data: upvoteCount,
+                            backgroundColor: ['#ff5733', '#33ff57', '#3357ff'],
+                            borderColor: ['#ff5733', '#33ff57', '#3357ff'],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: "top",
+                            },
+                        }
+                    }
+
+
+                });
+
+            } else {
+                console.error("Canvas context not found")
+            }
+
+        }
+
+        let categoryChartInstance = null;
+        // Function to create pie chart for total posts per category
+        // Create data chart from fetched data
+        function categoryChart(categories, posts) {
+            const ctx = document.getElementById("categoryChart").getContext('2d');
+
+            if (ctx) {
+                const myChart = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: categories, // Categories as labels
+                        datasets: [{
+                            label: 'Categories by Total Posts',
+                            data: posts,
+                            backgroundColor: ['#ff5733', '#33ff57', '#3357ff', '#f39c12', '#8e44ad'], // Color for each slice
+                            borderColor: ['#ffffff', '#ffffff', '#ffffff', '#ffffff', '#ffffff'], // White borders for slices
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: "top",
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function (tooltipItem) {
+                                        let label = tooltipItem.label || '';
+
+                                        if (label) {
+                                            label += ': ' + tooltipItem.raw; // Display the value for each slice
+                                        }
+                                        return label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+            } else {
+                console.error("Canvas context not found");
+            }
+        }
+
+        let postsLineChartInstance = null;
+        // Function to create the line chart for category post total over 6 months
+        function createLineChart(months, categories, postsData) {
+            const ctx = document.getElementById("postsLineChart").getContext('2d');
+
+            if (ctx) {
+                const myChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: months, // X-axis is months
+                        datasets: categories.map(category => ({
+                            label: category,
+                            data: postsData[category],
+                            borderColor: ['#ff5733', '#33ff57', '#3357ff', '#f39c12', '#8e44ad'], // Generate a random color for each category
+                            borderWidth: 2,
+                            fill: false
+                        }))
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false,
+                            }
+                        },
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Month'
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Total Posts'
+                                },
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+                postsData = postsData; // Save global data for export
+            } else {
+                console.error("Canvas context not found");
+            }
+        }
+
+
+        // Fetch data needed for chart
+        function fetchChartData() {
+            // fetch category and total upvote count
+            fetch('ProjectServices.asmx/GetUpvoteData', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Raw Data:', data);
+                    // Parse the data.d field to retrieve the actual JSON object
+                    const parsedData = JSON.parse(data.d);
+                    console.log('Parsed Data:', parsedData);
+
+                    if (parsedData && parsedData.ChartInfo) {
+                        const categories = parsedData.ChartInfo.map(item => item.category);
+                        const upvoteCount = parsedData.ChartInfo.map(item => item.upvoteCount);
+                        upvoteCategories = categories; // Store globally
+                        upvoteCountData = upvoteCount; // Store the upvote counts globally
+
+                        // Log the categories and data to verify
+                        console.log("Upvote Categories: ", upvoteCategories);
+                        console.log("Upvote Counts: ", upvoteCountData);
+                        upvoteChart(categories, upvoteCount);
+
+                    } else {
+                        console.error('ChartInfo is missing or incorrect:', parsedData);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching data:', error);
+                });
+
+            // Fetch total posts per category
+            fetch('ProjectServices.asmx/GetCategoryData', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    const parsedData = JSON.parse(data.d);
+                    if (parsedData && parsedData.ChartInfo) {
+                        const categories = parsedData.ChartInfo.map(item => item.category);
+                        const posts = parsedData.ChartInfo.map(item => item.totalPosts);
+                        categoryCategories = categories; // Store globally
+                        categoryPosts = posts; // Store globally
+
+                        // Log the categories and data to verify
+                        console.log("Category Categories: ", categoryCategories);
+                        console.log("Category Posts: ", categoryPosts);
+
+                        categoryChart(categories, posts);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching data:', error);
+                });
+
+            // Fetch total posts per category over the last 6 months
+            fetch('ProjectServices.asmx/GetCategoryTimeData', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Raw Data:', data);
+                    const parsedData = JSON.parse(data.d);
+                    console.log('Parsed Data:', parsedData);
+
+                    if (parsedData && parsedData.ChartInfo) {
+                        // Initialize arrays to store the months, categories, and total posts
+                        const months = [];
+                        const categories = new Set();
+                        const totalPosts = {};
+
+                        // Loop through the data and populate the months, categories, and totalPosts
+                        parsedData.ChartInfo.forEach(item => {
+                            // Collect months
+                            if (!months.includes(item.month)) months.push(item.month);
+                            // Collect categories
+                            categories.add(item.category);
+
+                            // Initialize totalPosts for each category if not already initialized
+                            if (!totalPosts[item.category]) {
+                                totalPosts[item.category] = new Array(months.length).fill(0);  // Initialize array with zeros
+                            }
+
+                            // Find the index for the current month in the months array
+                            const monthIndex = months.indexOf(item.month);
+
+                            // Set the total posts for the category at the correct month index
+                            totalPosts[item.category][monthIndex] = parseInt(item.totalPosts);  // Parse to integer
+                        });
+
+                        // Convert the Set of categories to an array
+                        const categoryArray = Array.from(categories);
+
+                        postsData = totalPosts; // Store globally
+                        // Call the function to create the line chart with the gathered data
+                        createLineChart(months, categoryArray, totalPosts);
+                    } else {
+                        console.error('ChartInfo is missing or incorrect:', parsedData);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching data:', error);
+                });
+        }
+
+        function exportToCSV(categories, data, filename) {
+            // Log categories and data before exporting to check if they are populated correctly
+            console.log('Exporting Categories: ', categories);
+            console.log('Exporting Data: ', data);
+
+            if (categories.length !== data.length) {
+                console.error('Mismatch in the number of categories and data.');
+                return; // Prevent export if categories and data don't match
+            }
+
+            // Ensure that both categories and data are properly mapped
+            const chartData = categories.map((category, index) => ({
+                Category: category,
+                Data: data[index]
+            }));
+
+            // Convert the data to CSV format using PapaParse
+            const csv = Papa.unparse(chartData);
+
+            // Create a hidden link to download the CSV
+            const hiddenElement = document.createElement('a');
+            hiddenElement.href = 'data:text/csv;charset=utf-8,' + encodeURI(csv);
+            hiddenElement.target = '_blank';
+            hiddenElement.download = filename; // Dynamic filename
+            hiddenElement.click();
+        }
+
+        function exportToPDF(categories, data, filename) {
+
+            // Log categories and data before exporting to check if they are populated correctly
+            console.log('Exporting Categories: ', categories);
+            console.log('Exporting Data: ', data);
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.text(`${filename} Data`, 10, 10);
+
+            let yPosition = 20;
+            // Loop through categories and data and add to PDF
+            categories.forEach((category, index) => {
+                doc.text(`${category}: ${data[index]}`, 10, yPosition);
+                yPosition += 10; // Adjust the y-position for each entry
+            });
+
+            doc.save(filename);
+        }
+
+        function exportLineChartToCSV(months, categories, totalPosts, filename) {
+            // Log months, categories, and data before exporting to check if they are populated correctly
+            console.log('Exporting Line Chart Months: ', months);
+            console.log('Exporting Line Chart Categories: ', categories);
+            console.log('Exporting Line Chart Data: ', totalPosts);
+
+            if (categories.length !== Object.keys(totalPosts).length || months.length === 0) {
+                console.error('Mismatch in the number of categories or months.');
+                return; // Prevent export if there are any issues
+            }
+
+            // Prepare the chart data with months as the first column
+            const chartData = months.map((month, index) => {
+                const row = { Month: month };  // Start with the month
+                categories.forEach(category => {
+                    row[category] = totalPosts[category][index]; // Add the data for each category
+                });
+                return row;
+            });
+
+            // Convert the data to CSV format using PapaParse
+            const csv = Papa.unparse(chartData);
+
+            // Create a hidden link to download the CSV
+            const hiddenElement = document.createElement('a');
+            hiddenElement.href = 'data:text/csv;charset=utf-8,' + encodeURI(csv);
+            hiddenElement.target = '_blank';
+            hiddenElement.download = filename; // Dynamic filename
+            hiddenElement.click();
+        }
+
+        function exportLineChartToPDF() {
+            console.log('Exporting Line Chart Months: ', Object.keys(postsData));
+            console.log('Exporting Line Chart Categories: ', Object.keys(postsData));
+            console.log('Exporting Line Chart Data: ', postsData);
+
+            const months = Object.keys(postsData);
+            const categories = Object.keys(postsData);
+
+            if (months.length === 0 || categories.length === 0) {
+                console.error('No data available for export.');
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.text('Line Chart Data', 10, 10);
+
+            let yPosition = 20;
+
+            // Display Months as the first row
+            let monthText = 'Months: ' + months.join(', ');
+            doc.text(monthText, 10, yPosition);
+            yPosition += 10;
+
+            // Display the data for each category below the month row
+            categories.forEach((category) => {
+                let dataText = `${category}: ${postsData[category].join(', ')}`;
+                doc.text(dataText, 10, yPosition);
+                yPosition += 10;
+            });
+
+            doc.save('line_chart_data.pdf');
+        }
+
+
+        document.addEventListener("DOMContentLoaded", function () {
+
+            // Button event listeners for Upvote chart
+            document.getElementById('exportUpvoteCSV').addEventListener('click', function () {
+                // Log the categories and data before exporting
+                console.log('Export Upvote Data:', upvoteCategories, upvoteCountData);
+                exportToCSV(upvoteCategories, upvoteCountData, 'upvote_data.csv');
+            });
+
+            document.getElementById('exportUpvotePDF').addEventListener('click', function () {
+                // Log the categories and data before exporting
+                console.log('Export Upvote Data:', upvoteCategories, upvoteCountData);
+                exportToPDF(upvoteCategories, upvoteCountData, 'upvote_data');
+            });
+
+            // Button event listeners for Category chart
+            document.getElementById('exportCategoryCSV').addEventListener('click', function () {
+                exportToCSV(categoryCategories, categoryPosts, 'category_data.csv');
+            });
+
+            document.getElementById('exportCategoryPDF').addEventListener('click', function () {
+                exportToPDF(categoryCategories, categoryPosts, 'category_data');
+            });
+
+            // Button event listeners for Posts chart
+            document.getElementById('exportPostsCSV').addEventListener('click', function () {
+                const months = Object.keys(postsData); // Get the months for the posts chart
+                exportLineChartToCSV(months, Object.keys(postsData), postsData, 'posts_data.csv');
+            });
+
+            document.getElementById('exportPostsPDF').addEventListener('click', function () {
+                exportLineChartToPDF();
+            });
+        });
+
 
     </script>
     <!--END OF YOUR OWN JAVASCRIPT-->
@@ -857,7 +1288,7 @@
 
         .container {
             width: 100%;
-            max-width: 800px;
+            max-width: 1200px;
             background-color: #ffffff;
             border-radius: 12px;
             padding: 30px;
@@ -882,6 +1313,41 @@
             margin-bottom: 8px;
             color: #555;
             font-weight: 500;
+        }
+
+        .form-group {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+            .form-group label {
+                font-size: 1rem;
+                margin-right: 10px;
+                color: #555;
+                font-weight: 500;
+            }
+
+        #postTitle {
+            flex-grow: 1;
+            max-width: 50%; 
+            padding: 10px 20px;
+            font-size: 1rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+
+        /* Category dropdown style */
+        #postCategory {
+            width: 25%; /* Set a fixed width for the category dropdown */
+            padding: 12px 20px;
+            font-size: 1rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #f9f9f9;
         }
 
 
@@ -972,6 +1438,15 @@
             width: 100%;
             max-height: 700px;
             overflow-y: auto;
+        }
+
+        #managerDashboardPanel {
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            background-color: #f4f4f4;
+            overflow: auto;
+            width: 100%;
         }
 
         #logonPanel {
@@ -1141,6 +1616,119 @@
             text-align: center;
             font-weight: bold;
         }
+
+        #dropdown {
+            float: right;
+            color: darkgreen;
+            margin-top: 0px;
+            border-radius: 3px;
+            font-size: 14px;
+            padding: 5px;
+        }
+
+        #dashboardContent {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: space-between;
+            margin-top: 40px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .chart-container {
+            width: 30%;
+            margin-bottom: 20px;
+            height: 300px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            box-sizing: border-box;
+            flex-grow: 0;
+            flex-shrink: 0;
+        }
+
+            .chart-container canvas {
+                width: 100%;
+                height: 300px;
+                background-color: #f9f9f9;
+                border: 1px solid #ddd;
+                max-height: 300px;
+            }
+
+        .chart-buttons-container {
+            margin-top: 15px;
+            display: flex;
+            flex-direction: row;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 10px;
+        }
+
+
+            #feedbackSection h2 {
+                margin-bottom: 20px;
+            }
+
+            #feedbackSection p {
+                margin-top: 10px;
+                color: #555;
+            }
+
+        #feedbackContainer {
+            margin-top: 40px;
+        }
+
+        #timeRangeFilter {
+            margin-top: 40px;
+            text-align: center;
+        }
+
+            #timeRangeFilter input {
+                margin: 10px;
+                padding: 8px;
+            }
+
+            #timeRangeFilter button {
+                padding: 10px 20px;
+                cursor: pointer;
+                background-color: #007BFF;
+                color: white;
+                border: none;
+                border-radius: 5px;
+            }
+
+                #timeRangeFilter button:hover {
+                    background-color: #0056b3;
+                }
+
+        .button-containers {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            margin-top: 10px;
+            gap: 10px;
+        }
+
+        .export-btn {
+            padding: 8px 16px;
+            margin: 5px 0;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            width: 150px;
+            text-align: center;
+        }
+            .export-btn:hover {
+                background-color: #45a049;
+            }
+
+            .export-btn:focus {
+                outline: none;
+            }
     </style>
     <!--END OF YOUR OWN CSS-->
 </head>
@@ -1203,13 +1791,28 @@
         <div id="postFormContainer" style="display: none;">
             <h1>Create a Suggestion</h1>
             <form id="postForm" onsubmit="submitPost(event)">
-                <label for="postTitle">Post Title</label>
-                <input type="text" id="postTitle" name="postTitle" placeholder="Enter the title of your post" required>
+                <div class="form-group">
+
+                    <label for="postTitle">Post Title</label>
+                    <input type="text" id="postTitle" name="postTitle" placeholder="Enter the title of your post" required>
+
+                    <!-- Category Selection Dropdown -->
+                    <label for="postCategory">Category:</label>
+                    <select id="postCategory" required>
+                        <option value="projects">Projects</option>
+                        <option value="manager">Manager</option>
+                        <option value="team">Team</option>
+                        <option value="general">General</option>
+                    </select><br>
+                </div>
+
 
                 <!--Content for feedback form limited to 500 chars-->
                 <label for="postContent">Post Content</label>
                 <textarea id="postContent" name="postContent" placeholder="Write your post content here" required maxlength="500" oninput="updateCharCount()"></textarea>
                 <p id="charCount">500 characters remaining</p>
+
+
 
                 <div class="button-containter">
                     <button type="submit">Submit Post</button>
@@ -1226,35 +1829,64 @@
     <div id="managerDashboardPanel" class="container">
         <h1>Manager Dashboard</h1>
 
-        <!-- User Info Display -->
-        <div id="managerUserInfo">
-            <!-- Feedback Dashboard Link return -->
-            <div id="feedbackLink">
-                <a href="javascript:goToFeedback();">Feedback</a>
+        <div id="dashboardContent">
+            <div class="chart-container">
+                <canvas id="upvoteChart"></canvas>
+                <!-- Export buttons for Upvote Chart -->
+                <div class="chart-buttons-container">
+                    <button id="exportUpvoteCSV" class="export-btn">Export CSV</button>
+                    <button id="exportUpvotePDF" class="export-btn">Export PDF</button>
+                </div>
+
             </div>
 
-            <span id="loggedInUser"></span>
-            <button id="logOutButton" onclick="logOut()">Log Out</button>
-
-        </div>
-
-        <div id="timeRangeFilter">
-            <h2>Filter Feedback by Time Range</h2>
-            <div>
-                <label for="startDate">Start Date:</label>
-                <input type="date" id="startDate">
-
-                <label for="endDate">End Date:</label>
-                <input type="date" id="endDate">
-
-                <button onclick="filterFeedbackByDate()">Filter Feedback</button>
+            <div class="chart-container">
+                <canvas id="categoryChart"></canvas>
+                <!-- Export buttons for Category Chart -->
+                <div class="chart-buttons-container">
+                    <button id="exportCategoryCSV" class="export-btn">Export CSV</button>
+                    <button id="exportCategoryPDF" class="export-btn">Export PDF</button>
+                </div>
             </div>
+
+            <div class="chart-container">
+                <canvas id="postsLineChart"></canvas>
+                <div class="chart-buttons-container">
+                    <button id="exportPostsCSV" class="export-btn">Export CSV</button>
+                    <button id="exportPostsPDF" class="export-btn">Export PDF</button>
+                </div>
+            </div>
+
+
+            <!-- User Info Display -->
+            <div id="managerUserInfo">
+                <!-- Feedback Dashboard Link return -->
+                <div id="feedbackLink">
+                    <a href="javascript:goToFeedback();">Feedback</a>
+                </div>
+
+                <span id="loggedInUser"></span>
+                <button id="logOutButton" onclick="logOut()">Log Out</button>
+
+            </div>
+
+            <div id="timeRangeFilter">
+                <h2>Filter Feedback by Time Range</h2>
+                <div>
+                    <label for="startDate">Start Date:</label>
+                    <input type="date" id="startDate">
+
+                    <label for="endDate">End Date:</label>
+                    <input type="date" id="endDate">
+
+                    <button onclick="filterFeedbackByDate()">Filter Feedback</button>
+                </div>
+            </div>
+            <!-- Add manager-specific content here -->
+            <div id="feedbackContainer"></div>
         </div>
-        <!-- Add manager-specific content here -->
-        <div id="feedbackContainer"></div>
-    </div>
 
 
-    <!--<button onclick="javascript: TestButtonHandler();">Click here to test connection!</button>-->
+        <!--<button onclick="javascript: TestButtonHandler();">Click here to test connection!</button>-->
 </body>
 </html>
