@@ -1033,7 +1033,7 @@ namespace ProjectTemplate
                         GROUP BY p.category, month
                         ORDER BY month DESC, p.category;";
 
-            var feedbackData = new List<object>();
+            var feedbackData = new List<CategoryPostData>(); 
 
 
             using (MySqlConnection conn = new MySqlConnection(getConString()))
@@ -1049,12 +1049,12 @@ namespace ProjectTemplate
                     {
                         while (reader.Read())
                         {
-                            feedbackData.Add(new
+                            feedbackData.Add(new CategoryPostData
                             {
 
-                                category = reader["category"].ToString(),
-                                month = reader["month"].ToString(),
-                                totalPosts = reader["totalPosts"].ToString(),
+                                Category = reader["category"] != DBNull.Value ? reader["category"].ToString() : string.Empty,
+                                Month = reader["month"] != DBNull.Value ? reader["month"].ToString() : string.Empty,
+                                TotalPosts = reader["totalPosts"] != DBNull.Value ? Convert.ToInt32(reader["totalPosts"]) : 0
 
                             });
                         }
@@ -1064,8 +1064,20 @@ namespace ProjectTemplate
 
             }
 
+            // Convert list to JSON and group the data by month and category
+            var groupedData = feedbackData
+                .GroupBy(item => item.Month)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.ToDictionary(
+                        item => item.Category,
+                        item => item.TotalPosts  // Ensure totalPosts is an integer
+                    )
+                );
+
+
             //Convert list to JSON 
-            var json = new JavaScriptSerializer().Serialize(new { ChartInfo = feedbackData });
+            var json = new JavaScriptSerializer().Serialize(new { ChartInfo = groupedData });
             return json;
 
         }

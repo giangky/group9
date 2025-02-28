@@ -17,6 +17,8 @@
         let categoryCategories = [];
         let categoryPosts = [];
         let postsData = {};
+        let months = [];
+        let categoryLine = [];
 
         function TestButtonHandler() {
             var webMethod = "ProjectServices.asmx/TestConnection";
@@ -1005,7 +1007,7 @@
 
         let postsLineChartInstance = null;
         // Function to create the line chart for category post total over 6 months
-        function createLineChart(months, categories, postsData) {
+        function createLineChart(months, categoryLine, lineChartData) {
             const ctx = document.getElementById("postsLineChart").getContext('2d');
 
             if (ctx) {
@@ -1013,10 +1015,10 @@
                     type: 'line',
                     data: {
                         labels: months, // X-axis is months
-                        datasets: categories.map(category => ({
+                        datasets: categoryLine.map((category, index) => ({
                             label: category,
-                            data: postsData[category],
-                            borderColor: ['#ff5733', '#33ff57', '#3357ff', '#f39c12', '#8e44ad'], // Generate a random color for each category
+                            data: lineChartData[index],  // Data for the specific category
+                            borderColor: ['#ff5733', '#33ff57', '#3357ff', '#f39c12', '#8e44ad'][index % 5], 
                             borderWidth: 2,
                             fill: false
                         }))
@@ -1050,7 +1052,7 @@
                         }
                     }
                 });
-                postsData = postsData; // Save global data for export
+                
             } else {
                 console.error("Canvas context not found");
             }
@@ -1067,31 +1069,31 @@
                     'Accept': 'application/json'
                 }
             })
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Raw Data:', data);
-                    // Parse the data.d field to retrieve the actual JSON object
-                    const parsedData = JSON.parse(data.d);
-                    console.log('Parsed Data:', parsedData);
+            .then(response => response.json())
+            .then(data => {
+                console.log('Raw Data:', data);
+                // Parse the data.d field to retrieve the actual JSON object
+                const parsedData = JSON.parse(data.d);
+                console.log('Parsed Data:', parsedData);
 
-                    if (parsedData && parsedData.ChartInfo) {
-                        const categories = parsedData.ChartInfo.map(item => item.category);
-                        const upvoteCount = parsedData.ChartInfo.map(item => item.upvoteCount);
-                        upvoteCategories = categories; // Store globally
-                        upvoteCountData = upvoteCount; // Store the upvote counts globally
+                if (parsedData && parsedData.ChartInfo) {
+                    const categories = parsedData.ChartInfo.map(item => item.category);
+                    const upvoteCount = parsedData.ChartInfo.map(item => item.upvoteCount);
+                    upvoteCategories = categories; // Store globally
+                    upvoteCountData = upvoteCount; // Store the upvote counts globally
 
-                        // Log the categories and data to verify
-                        console.log("Upvote Categories: ", upvoteCategories);
-                        console.log("Upvote Counts: ", upvoteCountData);
-                        upvoteChart(categories, upvoteCount);
+                    // Log the categories and data to verify
+                    console.log("Upvote Categories: ", upvoteCategories);
+                    console.log("Upvote Counts: ", upvoteCountData);
+                    upvoteChart(categories, upvoteCount);
 
-                    } else {
-                        console.error('ChartInfo is missing or incorrect:', parsedData);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching data:', error);
-                });
+                } else {
+                    console.error('ChartInfo is missing or incorrect:', parsedData);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching data:', error);
+            });
 
             // Fetch total posts per category
             fetch('ProjectServices.asmx/GetCategoryData', {
@@ -1101,25 +1103,25 @@
                     'Accept': 'application/json'
                 }
             })
-                .then(response => response.json())
-                .then(data => {
-                    const parsedData = JSON.parse(data.d);
-                    if (parsedData && parsedData.ChartInfo) {
-                        const categories = parsedData.ChartInfo.map(item => item.category);
-                        const posts = parsedData.ChartInfo.map(item => item.totalPosts);
-                        categoryCategories = categories; // Store globally
-                        categoryPosts = posts; // Store globally
+            .then(response => response.json())
+            .then(data => {
+                const parsedData = JSON.parse(data.d);
+                if (parsedData && parsedData.ChartInfo) {
+                    const categories = parsedData.ChartInfo.map(item => item.category);
+                    const posts = parsedData.ChartInfo.map(item => item.totalPosts);
+                    categoryCategories = categories; // Store globally
+                    categoryPosts = posts; // Store globally
 
-                        // Log the categories and data to verify
-                        console.log("Category Categories: ", categoryCategories);
-                        console.log("Category Posts: ", categoryPosts);
+                    // Log the categories and data to verify
+                    console.log("Category Categories: ", categoryCategories);
+                    console.log("Category Posts: ", categoryPosts);
 
-                        categoryChart(categories, posts);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching data:', error);
-                });
+                    categoryChart(categories, posts);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching data:', error);
+            });
 
             // Fetch total posts per category over the last 6 months
             fetch('ProjectServices.asmx/GetCategoryTimeData', {
@@ -1129,50 +1131,69 @@
                     'Accept': 'application/json'
                 }
             })
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Raw Data:', data);
-                    const parsedData = JSON.parse(data.d);
-                    console.log('Parsed Data:', parsedData);
+            .then(response => response.json())
+            .then(data => {
+                console.log('Raw Data:', data);
 
-                    if (parsedData && parsedData.ChartInfo) {
-                        // Initialize arrays to store the months, categories, and total posts
-                        const months = [];
-                        const categories = new Set();
-                        const totalPosts = {};
+                // Parse the 'd' property directly as the expected response is wrapped inside `d`
+                const parsedData = JSON.parse(data.d);
+                console.log('Parsed Data:', parsedData);
 
-                        // Loop through the data and populate the months, categories, and totalPosts
-                        parsedData.ChartInfo.forEach(item => {
-                            // Collect months
-                            if (!months.includes(item.month)) months.push(item.month);
-                            // Collect categories
-                            categories.add(item.category);
+                // Check if ChartInfo exists in the parsed data
+                if (parsedData && parsedData.ChartInfo) {
+                    const chartInfo = parsedData.ChartInfo;  // Now properly initialize chartInfo
+                    console.log('ChartInfo is an object:', chartInfo);
 
-                            // Initialize totalPosts for each category if not already initialized
-                            if (!totalPosts[item.category]) {
-                                totalPosts[item.category] = new Array(months.length).fill(0);  // Initialize array with zeros
-                            }
+                    // Initialize the postsData object
+                    postsData = {};
 
-                            // Find the index for the current month in the months array
-                            const monthIndex = months.indexOf(item.month);
+                    // Initialize a set to collect categories dynamically
+                    const dynamicCategories = new Set();
 
-                            // Set the total posts for the category at the correct month index
-                            totalPosts[item.category][monthIndex] = parseInt(item.totalPosts);  // Parse to integer
+                    // Process the fetched data into postsData
+                    Object.keys(chartInfo).forEach(month => {
+                        if (!postsData[month]) {
+                            postsData[month] = {};
+                        }
+
+                        const categoriesForMonth = chartInfo[month];
+
+                        Object.keys(categoriesForMonth).forEach(category => {
+                            const totalPosts = categoriesForMonth[category];
+                            postsData[month][category] = totalPosts;
+                            dynamicCategories.add(category); // Add category to the dynamic set
                         });
 
-                        // Convert the Set of categories to an array
-                        const categoryArray = Array.from(categories);
+                        // Ensure all categories have a value for the current month 
+                        dynamicCategories.forEach(category => {
+                            if (!postsData[month].hasOwnProperty(category)) {
+                                postsData[month][category] = 0;
+                            }
+                        });
+                    });
 
-                        postsData = totalPosts; // Store globally
-                        // Call the function to create the line chart with the gathered data
-                        createLineChart(months, categoryArray, totalPosts);
-                    } else {
-                        console.error('ChartInfo is missing or incorrect:', parsedData);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching data:', error);
-                });
+                    // Collect the months from the keys of the postsData object
+                    months = Object.keys(postsData);
+                    console.log('Months:', months);
+
+                    // Convert the dynamic set to an array and sort it
+                    categoryLine = Array.from(dynamicCategories).sort();
+                    console.log('Categories:', categoryLine);
+
+                    // Prepare data for the line chart
+                    const lineChartData = categoryLine.map(category => {
+                        return months.map(month => postsData[month][category]);
+                    });
+
+                    createLineChart(months, categoryLine, lineChartData);
+
+                } else {
+                    console.error('ChartInfo is missing or incorrect:', parsedData);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching data:', error);
+            });
         }
 
         function exportToCSV(categories, data, filename) {
@@ -1222,65 +1243,46 @@
             doc.save(filename);
         }
 
-        function exportLineChartToCSV(months, categories, totalPosts, filename) {
-            // Log months, categories, and data before exporting to check if they are populated correctly
-            console.log('Exporting Line Chart Months: ', months);
-            console.log('Exporting Line Chart Categories: ', categories);
-            console.log('Exporting Line Chart Data: ', totalPosts);
-
-            if (categories.length !== Object.keys(totalPosts).length || months.length === 0) {
-                console.error('Mismatch in the number of categories or months.');
-                return; // Prevent export if there are any issues
-            }
-
-            // Prepare the chart data with months as the first column
-            const chartData = months.map((month, index) => {
-                const row = { Month: month };  // Start with the month
-                categories.forEach(category => {
-                    row[category] = totalPosts[category][index]; // Add the data for each category
+        // Export line chart data to CSV function
+        function exportLineChartToCSV(months, categoryLine, postsData, filename) {
+            const chartData = months.map((month) => {
+                const row = [month];
+                categoryLine.forEach((category) => {
+                    const postCount = postsData[month][category] || 0;
+                    row.push(postCount);
                 });
                 return row;
             });
 
-            // Convert the data to CSV format using PapaParse
-            const csv = Papa.unparse(chartData);
+            const headerRow = ['Month', ...categoryLine];
+            chartData.unshift(headerRow);
 
-            // Create a hidden link to download the CSV
+            const csv = Papa.unparse(chartData);
             const hiddenElement = document.createElement('a');
             hiddenElement.href = 'data:text/csv;charset=utf-8,' + encodeURI(csv);
             hiddenElement.target = '_blank';
-            hiddenElement.download = filename; // Dynamic filename
+            hiddenElement.download = filename;
             hiddenElement.click();
         }
 
-        function exportLineChartToPDF() {
-            console.log('Exporting Line Chart Months: ', Object.keys(postsData));
-            console.log('Exporting Line Chart Categories: ', Object.keys(postsData));
-            console.log('Exporting Line Chart Data: ', postsData);
-
-            const months = Object.keys(postsData);
-            const categories = Object.keys(postsData);
-
-            if (months.length === 0 || categories.length === 0) {
-                console.error('No data available for export.');
-                return;
-            }
-
+        // Export to line chart data to PDF function
+        function exportLineChartToPDF(postsData, months, categoryLine) {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
             doc.text('Line Chart Data', 10, 10);
-
             let yPosition = 20;
 
-            // Display Months as the first row
-            let monthText = 'Months: ' + months.join(', ');
-            doc.text(monthText, 10, yPosition);
+            const headerRow = ['Month', ...categoryLine];
+            doc.text(headerRow.join('  '), 10, yPosition);
             yPosition += 10;
 
-            // Display the data for each category below the month row
-            categories.forEach((category) => {
-                let dataText = `${category}: ${postsData[category].join(', ')}`;
-                doc.text(dataText, 10, yPosition);
+            months.forEach((month) => {
+                let row = [month];
+                categoryLine.forEach((category) => {
+                    const postCount = postsData[month] && postsData[month][category] ? postsData[month][category] : 0;
+                    row.push(postCount);
+                });
+                doc.text(row.join('  '), 10, yPosition);
                 yPosition += 10;
             });
 
@@ -1289,8 +1291,8 @@
 
 
         document.addEventListener("DOMContentLoaded", function () {
-
-            // Button event listeners for Upvote chart
+             
+            // Button event listeners for Upvote Bar chart exports
             document.getElementById('exportUpvoteCSV').addEventListener('click', function () {
                 // Log the categories and data before exporting
                 console.log('Export Upvote Data:', upvoteCategories, upvoteCountData);
@@ -1303,7 +1305,7 @@
                 exportToPDF(upvoteCategories, upvoteCountData, 'upvote_data');
             });
 
-            // Button event listeners for Category chart
+            // Button event listeners for Category Pie chart exports
             document.getElementById('exportCategoryCSV').addEventListener('click', function () {
                 exportToCSV(categoryCategories, categoryPosts, 'category_data.csv');
             });
@@ -1312,18 +1314,16 @@
                 exportToPDF(categoryCategories, categoryPosts, 'category_data');
             });
 
-            // Button event listeners for Posts chart
-            document.getElementById('exportPostsCSV').addEventListener('click', function () {
-                const months = Object.keys(postsData); // Get the months for the posts chart
-                exportLineChartToCSV(months, Object.keys(postsData), postsData, 'posts_data.csv');
+            // Button event listeners for Line Chart exports
+            document.getElementById('exportLineChartToCSV').addEventListener('click', function () { 
+                exportLineChartToCSV(months, categoryLine, postsData, 'posts_data.csv');
             });
 
-            document.getElementById('exportPostsPDF').addEventListener('click', function () {
-                exportLineChartToPDF();
+            document.getElementById('exportLineChartToPDF').addEventListener('click', function () {
+                exportLineChartToPDF(postsData, months, categoryLine);
             });
         });
-
-
+  
     </script>
     <!--END OF YOUR OWN JAVASCRIPT-->
     <!--AND YOUR OWN CSS CAN GO HERE AS WELL-->
@@ -1916,8 +1916,8 @@
             <div class="chart-container">
                 <canvas id="postsLineChart"></canvas>
                 <div class="chart-buttons-container">
-                    <button id="exportPostsCSV" class="export-btn">Export CSV</button>
-                    <button id="exportPostsPDF" class="export-btn">Export PDF</button>
+                    <button id="exportLineChartToCSV" class="export-btn">Export CSV</button>
+                    <button id="exportLineChartToPDF" class="export-btn">Export PDF</button>
                 </div>
             </div>
 
