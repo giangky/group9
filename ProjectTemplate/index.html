@@ -889,36 +889,60 @@
                 return;
             }
 
-            // Filter feedback data by time range
-            const filteredData = feedbackData.filter(feedback => {
-                const feedbackDate = new Date(feedback.timestamp);
-                return feedbackDate >= startDate && feedbackDate <= endDate;
-            });
+            // Make the AJAX request to the backend WebMethod
+            $.ajax({
+                type: 'POST',
+                url: 'ProjectServices.asmx/GetFilteredFeedback', // Replace 'YourPage.aspx' with the actual page
+                data: JSON.stringify({ startDate: startDate, endDate: endDate }),  
+                contentType: 'application/json; charset=utf-8',
+                dataType: 'json',
+                        success: function (msg) {
+            if (msg.d.length > 0) {
+                feedbackArray = msg.d;
+                $("#feedbackContainer").empty();
 
-            // Display filtered feedback
-            displayFilteredFeedback(filteredData);
-        }
+                for (var i = 0; i < feedbackArray.length; i++) {
 
-        // Function to display filtered feedback in the UI
-        function displayFilteredFeedback(filteredData) {
-            const feedbackContainer = document.getElementById('feedbackContainer');
-            feedbackContainer.innerHTML = ''; // Clear existing feedback
+                    const currentStatus = feedbackArray[i].status ? feedbackArray[i].status : "Unreviewed";
 
-            if (filteredData.length === 0) {
-                feedbackContainer.innerHTML = "<p>No feedback found for the selected time range.</p>";
-                return;
+                    const statusDropdown = `
+                            <select id="dropdown" onchange="updateStatus(${feedbackArray[i].postId}, this.value)">
+                                <option value="Unreviewed" ${currentStatus === "Unreviewed" ? "selected" : ""}>Unreviewed</option>
+                                <option value="Reviewed" ${currentStatus === "Reviewed" ? "selected" : ""}>Reviewed</option>
+                                <option value="In Progress" ${currentStatus === "In Progress" ? "selected" : ""}>In Progress</option>
+                                <option value="Resolved" ${currentStatus === "Resolved" ? "selected" : ""}>Resolved</option>
+                            </select>
+                            `
+
+                    var feedback = `
+                                <div class='postRow' id='post${feedbackArray[i].postId}'>
+                                    <h3>${feedbackArray[i].title}</h3>
+                                    ${statusDropdown}
+                                    <p class='postUser'>Posted by: ${feedbackArray[i].userId}</p>
+                                    <p>${feedbackArray[i].content}</p>
+                                    <div class='post-footer' id="feedback">
+                                        <div class='post-upvote-count'>
+                                            Total Upvotes: <span id='upvoteCount-${feedbackArray[i].postId}'>${feedbackArray[i].upvoteCount}</span>
+                                        </div>
+                                    </div>
+                                    <hr>
+                                </div>
+                            `;
+
+                    // Append each post to the container
+                    $("#feedbackContainer").append(feedback);
+
+                }
+            } else {
+                $("#feedbackContainer").append("<p>No posts available at the moment.</p>");
             }
-
-            filteredData.forEach(feedback => {
-                const feedbackItem = document.createElement('div');
-                feedbackItem.className = 'feedback-item';
-                feedbackItem.innerHTML = `
-                    <p><strong>Date:</strong> ${new Date(feedback.timestamp).toLocaleDateString()}</p>
-                    <p><strong>Message:</strong> ${feedback.message}</p>
-                `;
-                feedbackContainer.appendChild(feedbackItem);
-            });
+        },
+        error: function (e) {
+            alert("Error fetching posts");
         }
+    });
+}
+
 
         let upvoteChartInstance = null;
         // Create data chart for upvotes per catergory from fetched data
