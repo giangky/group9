@@ -220,7 +220,7 @@
 
                         // Now, submit the post
                         var createPostMethod = "ProjectServices.asmx/CreatePost";
-                        var parameters = "{ \"title\":\"" + encodeURI(title) + "\",\"content\":\"" + encodeURI(content) + "\", \"userId\":\"" + encodeURI(userId) + "\"}";
+                        var parameters = "{ \"title\":\"" + encodeURI(title) + "\",\"content\":\"" + encodeURI(content) + "\", \"userId\":\"" + encodeURI(userId) + "\", \"category\":\"" + encodeURI(category) + "\"}";
 
                         $.ajax({
                             type: "POST",
@@ -234,6 +234,7 @@
                                 updateStreak(); // Update the streak after posting
                             },
                             error: function (e) {
+                                console.log("Error submitting post ", e)
                                 alert("Error submitting post.");
                             }
                         });
