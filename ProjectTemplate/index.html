@@ -1766,11 +1766,11 @@
             }
 
         #feedbackContainer {
-            margin-top: 40px;
+            margin-top: 100px;
         }
 
         #timeRangeFilter {
-            margin-top: 40px;
+            margin-top: 90px;
             text-align: center;
         }
 
@@ -1920,6 +1920,7 @@
 
         <div id="dashboardContent">
             <div class="chart-container">
+                <h4 id="categoryChartTitle">Category Distribution by Total Upvotes</h4>
                 <canvas id="upvoteChart"></canvas>
                 <!-- Export buttons for Upvote Chart -->
                 <div class="chart-buttons-container">
@@ -1930,6 +1931,7 @@
             </div>
 
             <div class="chart-container">
+                <h4 id="categoryChartTitle">Category Distribution by Total Posts</h4>
                 <canvas id="categoryChart"></canvas>
                 <!-- Export buttons for Category Chart -->
                 <div class="chart-buttons-container">
@@ -1939,6 +1941,7 @@
             </div>
 
             <div class="chart-container">
+                <h4 id="categoryChartTitle">Distribution Trend by Total Posts </h4>
                 <canvas id="postsLineChart"></canvas>
                 <div class="chart-buttons-container">
                     <button id="exportLineChartToCSV" class="export-btn">Export CSV</button>
