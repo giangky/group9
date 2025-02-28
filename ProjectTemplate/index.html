@@ -1061,7 +1061,11 @@
 
         // Fetch data needed for chart
         function fetchChartData() {
-            // fetch category and total upvote count
+            const currentDate = new Date();
+            const currentMonth = currentDate.getMonth() + 1; // JavaScript months are 0-indexed
+            const currentYear = currentDate.getFullYear();
+
+            // Fetch upvote data (Bar Chart)
             fetch('ProjectServices.asmx/GetUpvoteData', {
                 method: 'POST',
                 headers: {
@@ -1069,33 +1073,37 @@
                     'Accept': 'application/json'
                 }
             })
-            .then(response => response.json())
-            .then(data => {
-                console.log('Raw Data:', data);
-                // Parse the data.d field to retrieve the actual JSON object
-                const parsedData = JSON.parse(data.d);
-                console.log('Parsed Data:', parsedData);
+                .then(response => response.json())
+                .then(data => {
+                    const parsedData = JSON.parse(data.d);
 
-                if (parsedData && parsedData.ChartInfo) {
-                    const categories = parsedData.ChartInfo.map(item => item.category);
-                    const upvoteCount = parsedData.ChartInfo.map(item => item.upvoteCount);
-                    upvoteCategories = categories; // Store globally
-                    upvoteCountData = upvoteCount; // Store the upvote counts globally
+                    if (parsedData && parsedData.ChartInfo) {
+                        let filteredData = parsedData.ChartInfo;
 
-                    // Log the categories and data to verify
-                    console.log("Upvote Categories: ", upvoteCategories);
-                    console.log("Upvote Counts: ", upvoteCountData);
-                    upvoteChart(categories, upvoteCount);
+                        // Ensure created_at is present before filtering
+                        if (filteredData.some(item => item.created_at)) {
+                            filteredData = filteredData.filter(item => {
+                                const postDate = new Date(item.created_at);
+                                return (postDate.getMonth() + 1) === currentMonth && postDate.getFullYear() === currentYear;
+                            });
+                        }
 
-                } else {
-                    console.error('ChartInfo is missing or incorrect:', parsedData);
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching data:', error);
-            });
+                        // If filteredData is empty, use the original dataset
+                        if (filteredData.length === 0) {
+                            filteredData = parsedData.ChartInfo;
+                        }
 
-            // Fetch total posts per category
+                        const categories = filteredData.map(item => item.category);
+                        const upvoteCount = filteredData.map(item => item.upvoteCount);
+
+                        upvoteChart(categories, upvoteCount); // Update Bar Chart
+                    } else {
+                        console.error('ChartInfo is missing or incorrect:', parsedData);
+                    }
+                })
+                .catch(error => console.error('Error fetching upvote data:', error));
+
+            // Fetch category data (Pie Chart)
             fetch('ProjectServices.asmx/GetCategoryData', {
                 method: 'POST',
                 headers: {
@@ -1103,27 +1111,35 @@
                     'Accept': 'application/json'
                 }
             })
-            .then(response => response.json())
-            .then(data => {
-                const parsedData = JSON.parse(data.d);
-                if (parsedData && parsedData.ChartInfo) {
-                    const categories = parsedData.ChartInfo.map(item => item.category);
-                    const posts = parsedData.ChartInfo.map(item => item.totalPosts);
-                    categoryCategories = categories; // Store globally
-                    categoryPosts = posts; // Store globally
+                .then(response => response.json())
+                .then(data => {
+                    const parsedData = JSON.parse(data.d);
 
-                    // Log the categories and data to verify
-                    console.log("Category Categories: ", categoryCategories);
-                    console.log("Category Posts: ", categoryPosts);
+                    if (parsedData && parsedData.ChartInfo) {
+                        let filteredData = parsedData.ChartInfo;
 
-                    categoryChart(categories, posts);
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching data:', error);
-            });
+                        // Ensure created_at is present before filtering
+                        if (filteredData.some(item => item.created_at)) {
+                            filteredData = filteredData.filter(item => {
+                                const postDate = new Date(item.created_at);
+                                return (postDate.getMonth() + 1) === currentMonth && postDate.getFullYear() === currentYear;
+                            });
+                        }
 
-            // Fetch total posts per category over the last 6 months
+                        // If filteredData is empty, use the original dataset
+                        if (filteredData.length === 0) {
+                            filteredData = parsedData.ChartInfo;
+                        }
+
+                        const categories = filteredData.map(item => item.category);
+                        const posts = filteredData.map(item => item.totalPosts);
+
+                        categoryChart(categories, posts); // Update Pie Chart
+                    }
+                })
+                .catch(error => console.error('Error fetching category data:', error));
+
+            // Keep line chart data unchanged
             fetch('ProjectServices.asmx/GetCategoryTimeData', {
                 method: 'POST',
                 headers: {
@@ -1131,70 +1147,47 @@
                     'Accept': 'application/json'
                 }
             })
-            .then(response => response.json())
-            .then(data => {
-                console.log('Raw Data:', data);
+                .then(response => response.json())
+                .then(data => {
+                    const parsedData = JSON.parse(data.d);
+                    if (parsedData && parsedData.ChartInfo) {
+                        const chartInfo = parsedData.ChartInfo;
+                        postsData = {};
 
-                // Parse the 'd' property directly as the expected response is wrapped inside `d`
-                const parsedData = JSON.parse(data.d);
-                console.log('Parsed Data:', parsedData);
-
-                // Check if ChartInfo exists in the parsed data
-                if (parsedData && parsedData.ChartInfo) {
-                    const chartInfo = parsedData.ChartInfo;  // Now properly initialize chartInfo
-                    console.log('ChartInfo is an object:', chartInfo);
-
-                    // Initialize the postsData object
-                    postsData = {};
-
-                    // Initialize a set to collect categories dynamically
-                    const dynamicCategories = new Set();
-
-                    // Process the fetched data into postsData
-                    Object.keys(chartInfo).forEach(month => {
-                        if (!postsData[month]) {
-                            postsData[month] = {};
-                        }
-
-                        const categoriesForMonth = chartInfo[month];
-
-                        Object.keys(categoriesForMonth).forEach(category => {
-                            const totalPosts = categoriesForMonth[category];
-                            postsData[month][category] = totalPosts;
-                            dynamicCategories.add(category); // Add category to the dynamic set
-                        });
-
-                        // Ensure all categories have a value for the current month 
-                        dynamicCategories.forEach(category => {
-                            if (!postsData[month].hasOwnProperty(category)) {
-                                postsData[month][category] = 0;
+                        const dynamicCategories = new Set();
+                        Object.keys(chartInfo).forEach(month => {
+                            if (!postsData[month]) {
+                                postsData[month] = {};
                             }
+                            const categoriesForMonth = chartInfo[month];
+
+                            Object.keys(categoriesForMonth).forEach(category => {
+                                const totalPosts = categoriesForMonth[category];
+                                postsData[month][category] = totalPosts;
+                                dynamicCategories.add(category);
+                            });
+
+                            dynamicCategories.forEach(category => {
+                                if (!postsData[month].hasOwnProperty(category)) {
+                                    postsData[month][category] = 0;
+                                }
+                            });
                         });
-                    });
 
-                    // Collect the months from the keys of the postsData object
-                    months = Object.keys(postsData);
-                    console.log('Months:', months);
+                        months = Object.keys(postsData);
+                        categoryLine = Array.from(dynamicCategories).sort();
 
-                    // Convert the dynamic set to an array and sort it
-                    categoryLine = Array.from(dynamicCategories).sort();
-                    console.log('Categories:', categoryLine);
+                        const lineChartData = categoryLine.map(category => {
+                            return months.map(month => postsData[month][category]);
+                        });
 
-                    // Prepare data for the line chart
-                    const lineChartData = categoryLine.map(category => {
-                        return months.map(month => postsData[month][category]);
-                    });
-
-                    createLineChart(months, categoryLine, lineChartData);
-
-                } else {
-                    console.error('ChartInfo is missing or incorrect:', parsedData);
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching data:', error);
-            });
+                        createLineChart(months, categoryLine, lineChartData);
+                    }
+                })
+                .catch(error => console.error('Error fetching line chart data:', error));
         }
+
+
 
         function exportToCSV(categories, data, filename) {
             // Log categories and data before exporting to check if they are populated correctly
